@@ -1,0 +1,321 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 32% 12%;
+
+    --surface: 220 23% 98%;
+    --surface-foreground: 222 32% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 32% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 32% 12%;
+
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 221 83% 47%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 32% 18%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 221 90% 96%;
+    --accent-foreground: 221 83% 40%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 64% 38%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 221 83% 53%;
+
+    --radius: 0.625rem;
+
+    --shadow-xs: 0 1px 2px hsl(220 43% 11% / 0.04);
+    --shadow-sm: 0 1px 3px hsl(220 43% 11% / 0.06), 0 1px 2px hsl(220 43% 11% / 0.04);
+    --shadow-md: 0 4px 12px -2px hsl(220 43% 11% / 0.08), 0 2px 4px -2px hsl(220 43% 11% / 0.04);
+    --shadow-lg: 0 12px 32px -8px hsl(220 43% 11% / 0.12);
+
+    --sidebar-background: 220 23% 98%;
+    --sidebar-foreground: 222 20% 30%;
+    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 221 90% 96%;
+    --sidebar-accent-foreground: 221 83% 40%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 221 83% 53%;
+  }
+
+  /* ================================================================
+     PREMIUM DARK MODE — "Slate Night"
+     
+     Real visual depth hierarchy (lightness values):
+       Page background  → 7%   = #0e1117  (darkest layer)
+       Sidebar          → 6%   = #0c1016  (slightly darker sidebar)
+       Card/Panel       → 13%  = #19202e  (visibly elevated)
+       Elevated surface → 18%  = #222c3c  (hover/raised state)
+       Border           → 22%  = visible lines between elements
+       Muted text       → 58%  = clearly readable secondary text
+       Primary text     → 96%  = near-white, crisp
+  ================================================================ */
+  .dark {
+    --background:          220 16% 7%;
+    --foreground:          210 40% 96%;
+
+    --surface:             220 16% 10%;
+    --surface-foreground:  210 40% 96%;
+
+    --card:                220 16% 13%;
+    --card-foreground:     210 40% 96%;
+
+    --popover:             220 16% 16%;
+    --popover-foreground:  210 40% 96%;
+
+    --primary:             217 91% 62%;
+    --primary-foreground:  220 16% 7%;
+
+    --secondary:           220 16% 18%;
+    --secondary-foreground:210 30% 85%;
+
+    --muted:               220 16% 15%;
+    --muted-foreground:    215 20% 58%;
+
+    --accent:              220 16% 20%;
+    --accent-foreground:   210 40% 96%;
+
+    --destructive:         0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border:              220 16% 22%;
+    --input:               220 16% 15%;
+    --ring:                217 91% 62%;
+
+    --sidebar-background:  220 16% 6%;
+    --sidebar-foreground:  215 25% 75%;
+    --sidebar-primary:     217 91% 62%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent:      220 16% 13%;
+    --sidebar-accent-foreground: 210 40% 96%;
+    --sidebar-border:      220 16% 13%;
+    --sidebar-ring:        217 91% 62%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    background-color: hsl(var(--background));
+  }
+
+  body {
+    @apply text-foreground antialiased;
+    background-color: transparent;
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100vh;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 0%, rgba(59, 130, 246, 0.03), transparent 55%);
+  }
+
+  .dark body::before {
+    background:
+      radial-gradient(ellipse at 65% 0%, rgba(59, 130, 246, 0.07), transparent 60%),
+      radial-gradient(ellipse at 15% 90%, rgba(139, 92, 246, 0.04), transparent 50%);
+  }
+
+  h1, h2, h3, h4, h5 {
+    @apply tracking-tight;
+  }
+}
+
+/* ================================================================
+   DARK MODE — GLOBAL UTILITY OVERRIDES
+   
+   This fixes every hardcoded bg-white, bg-zinc-50, border-zinc-100,
+   text-zinc-900 that appears in components without explicit dark: class.
+   
+   Strategy: map light palette → dark palette preserving brightness intent:
+     white    → card (13% lightness)
+     zinc-50  → 16% lightness  
+     zinc-100 → 18% lightness
+     zinc-200 → 22% lightness (border territory)
+================================================================ */
+
+/* ── Backgrounds ──────────────────────────────────────────────── */
+.dark .bg-white {
+  background-color: hsl(220 16% 13%) !important;
+}
+.dark .bg-zinc-50 {
+  background-color: hsl(220 16% 16%) !important;
+}
+.dark .bg-zinc-100 {
+  background-color: hsl(220 16% 19%) !important;
+}
+.dark .bg-zinc-50\/50 {
+  background-color: hsl(220 16% 15% / 0.5) !important;
+}
+
+/* ── Borders ──────────────────────────────────────────────────── */
+.dark .border-zinc-100 {
+  border-color: hsl(220 16% 22%) !important;
+}
+.dark .border-zinc-200 {
+  border-color: hsl(220 16% 24%) !important;
+}
+.dark .border-zinc-200\/50 {
+  border-color: hsl(220 16% 24% / 0.6) !important;
+}
+
+/* ── Text ─────────────────────────────────────────────────────── */
+.dark .text-zinc-900 {
+  color: hsl(210 40% 96%) !important;
+}
+.dark .text-zinc-800 {
+  color: hsl(210 30% 88%) !important;
+}
+.dark .text-zinc-700 {
+  color: hsl(215 20% 78%) !important;
+}
+.dark .text-zinc-600 {
+  color: hsl(215 20% 68%) !important;
+}
+.dark .text-zinc-500 {
+  color: hsl(215 15% 58%) !important;
+}
+.dark .text-zinc-400 {
+  color: hsl(215 15% 52%) !important;
+}
+.dark .text-zinc-300 {
+  color: hsl(215 12% 42%) !important;
+}
+
+/* ── Semantic background pills ────────────────────────────────── */
+.dark .bg-emerald-50,
+.dark .bg-emerald-50\/20 {
+  background-color: hsl(152 30% 11%) !important;
+}
+.dark .bg-emerald-50\/30 {
+  background-color: hsl(152 25% 10%) !important;
+}
+.dark .bg-emerald-950\/20 {
+  background-color: hsl(152 35% 9%) !important;
+}
+.dark .bg-amber-50,
+.dark .bg-amber-50\/20 {
+  background-color: hsl(38 30% 11%) !important;
+}
+.dark .bg-amber-50\/30 {
+  background-color: hsl(38 25% 9%) !important;
+}
+.dark .bg-blue-50 {
+  background-color: hsl(217 30% 13%) !important;
+}
+.dark .bg-rose-50 {
+  background-color: hsl(0 30% 12%) !important;
+}
+.dark .bg-purple-50 {
+  background-color: hsl(270 25% 13%) !important;
+}
+
+/* ── Semantic text (stays vivid) ──────────────────────────────── */
+.dark .text-emerald-600 { color: hsl(152 60% 50%) !important; }
+.dark .text-emerald-500 { color: hsl(152 60% 50%) !important; }
+.dark .text-amber-600   { color: hsl(38 85% 55%) !important; }
+.dark .text-amber-500   { color: hsl(38 85% 55%) !important; }
+.dark .text-blue-600    { color: hsl(217 80% 65%) !important; }
+.dark .text-blue-500    { color: hsl(217 80% 65%) !important; }
+.dark .text-rose-600    { color: hsl(0 75% 60%) !important; }
+.dark .text-rose-500    { color: hsl(0 75% 60%) !important; }
+.dark .text-purple-600  { color: hsl(270 70% 65%) !important; }
+
+/* ── Semantic borders ─────────────────────────────────────────── */
+.dark .border-emerald-100  { border-color: hsl(152 30% 20%) !important; }
+.dark .border-emerald-200  { border-color: hsl(152 30% 24%) !important; }
+.dark .border-emerald-200\/50 { border-color: hsl(152 35% 25% / 0.6) !important; }
+.dark .border-emerald-900\/50 { border-color: hsl(152 35% 18% / 0.6) !important; }
+.dark .border-amber-100    { border-color: hsl(38 30% 20%) !important; }
+.dark .border-amber-200\/50  { border-color: hsl(38 35% 25% / 0.6) !important; }
+.dark .border-blue-200     { border-color: hsl(217 35% 28%) !important; }
+.dark .border-rose-200     { border-color: hsl(0 35% 26%) !important; }
+
+/* ── Hover states ─────────────────────────────────────────────── */
+.dark .hover\:bg-zinc-50:hover {
+  background-color: hsl(220 16% 17%) !important;
+}
+.dark .hover\:bg-zinc-100:hover {
+  background-color: hsl(220 16% 20%) !important;
+}
+.dark .hover\:border-zinc-300:hover {
+  border-color: hsl(220 16% 28%) !important;
+}
+.dark .hover\:border-zinc-700:hover {
+  border-color: hsl(220 16% 30%) !important;
+}
+
+/* ── Recharts charts ──────────────────────────────────────────── */
+.dark .recharts-cartesian-grid line {
+  stroke: hsl(220 16% 20%) !important;
+}
+
+/* ── Misc utility shadows ─────────────────────────────────────── */
+.shadow-xs   { box-shadow: var(--shadow-xs); }
+.shadow-card { box-shadow: var(--shadow-sm); }
+.shadow-pop  { box-shadow: var(--shadow-md); }
+.shadow-float{ box-shadow: var(--shadow-lg); }
+
+/* ── Animations ───────────────────────────────────────────────── */
+@keyframes slideUpFade {
+  0%   { transform: translateY(100px) rotate(5deg); opacity: 0; }
+  100% { transform: translateY(0) rotate(0deg); opacity: 1; }
+}
+.animate-slide-up-fade {
+  animation: slideUpFade 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes float {
+  0%   { transform: translateY(0px); }
+  50%  { transform: translateY(-15px); }
+  100% { transform: translateY(0px); }
+}
+.animate-float { animation: float 5s ease-in-out infinite; }
+
+@keyframes blob {
+  0%   { transform: translate(0px, 0px) scale(1); }
+  33%  { transform: translate(30px, -50px) scale(1.1); }
+  66%  { transform: translate(-20px, 20px) scale(0.9); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+.animate-blob { animation: blob 7s infinite; }
+.animation-delay-2000 { animation-delay: 2s; }
+.animation-delay-4000 { animation-delay: 4s; }
+
+#root {
+  position: relative;
+  z-index: 1;
+}
