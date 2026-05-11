@@ -241,13 +241,13 @@ export default function EmployeeProfile() {
             <dl className="space-y-4 text-sm">
               <div className="flex items-center justify-between py-1 border-b border-border/50 pb-3">
                 <dt className="text-muted-foreground font-medium">Role</dt>
-                <dd className="font-semibold text-foreground flex items-center gap-1.5">
-                  <User className="h-3.5 w-3.5 text-primary" /> Team Member
+                <dd className="font-semibold text-foreground flex items-center gap-1.5 capitalize">
+                  <User className="h-3.5 w-3.5 text-primary" /> {u.role.replace('_', ' ')}
                 </dd>
               </div>
               <div className="flex items-center justify-between py-1 border-b border-border/50 pb-3">
                 <dt className="text-muted-foreground font-medium">Total Work Logs</dt>
-                <dd className="font-semibold text-foreground text-base">{u.totalLogs}</dd>
+                <dd className="font-semibold text-foreground text-base">{u.totalLogs || 0}</dd>
               </div>
               <div className="flex items-center justify-between py-1 border-b border-border/50 pb-3">
                 <dt className="text-muted-foreground font-medium">Joined Workspace</dt>

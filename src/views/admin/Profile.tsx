@@ -246,6 +246,10 @@ export default function AdminProfile() {
                 </dd>
               </div>
               <div className="flex items-center justify-between py-1 border-b border-border/50 pb-3">
+                <dt className="text-muted-foreground font-medium">Total Work Logs</dt>
+                <dd className="font-semibold text-foreground text-base">{u.totalLogs || 0}</dd>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-border/50 pb-3">
                 <dt className="text-muted-foreground font-medium">Joined Workspace</dt>
                 <dd className="font-semibold text-foreground">{formatDate(u.joinedAt)}</dd>
               </div>
