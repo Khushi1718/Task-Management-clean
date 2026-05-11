@@ -340,7 +340,7 @@ export async function POST(request: NextRequest, context: any) {
         team: user.team,
         isActive: user.isActive,
         joinedAt: user.joinedAt,
-        totalLogs: 0,
+        totalLogs: user.totalLogs || 0,
       },
       token,
     });
@@ -537,6 +537,12 @@ export async function GET(request: NextRequest, context: Context) {
 
     if (!user) return fail(404, "User not found");
 
+    // Calculate total tasks assigned to this user
+    const userAssignments = await Assignment.find({ assignedTo: auth.user.userId }).select("_id");
+    const totalTasks = await Task.countDocuments({ 
+      assignmentId: { $in: userAssignments.map(a => a._id) } 
+    });
+
     return ok("Profile retrieved", {
       id: user._id,
       name: user.name,
@@ -545,6 +551,8 @@ export async function GET(request: NextRequest, context: Context) {
       team: user.team,
       isActive: user.isActive,
       joinedAt: user.joinedAt,
+      totalLogs: user.totalLogs || 0,
+      totalTasks: totalTasks || 0,
     });
   }
 

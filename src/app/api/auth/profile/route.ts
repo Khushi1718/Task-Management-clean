@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/server/db";
 import User from "@/server/models/User";
+import Assignment from "@/server/models/Assignment";
+import Task from "@/server/models/Task";
 import { verifyToken } from "@/server/jwt";
 
 export const runtime = "nodejs";
@@ -33,6 +35,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Calculate total tasks assigned to this user
+    const userAssignments = await Assignment.find({ assignedTo: auth.userId }).select("_id");
+    const totalTasks = await Task.countDocuments({ 
+      assignmentId: { $in: userAssignments.map(a => a._id) } 
+    });
+
     return NextResponse.json(
       {
         success: true,
@@ -45,6 +53,8 @@ export async function GET(request: NextRequest) {
           team: user.team,
           isActive: user.isActive,
           joinedAt: user.joinedAt,
+          totalLogs: user.totalLogs || 0,
+          totalTasks: totalTasks || 0,
         },
       },
       { status: 200 }

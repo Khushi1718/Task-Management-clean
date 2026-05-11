@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
             team: user.team,
             isActive: user.isActive,
             joinedAt: user.joinedAt,
-            totalLogs: 0,
+            totalLogs: user.totalLogs || 0,
           },
           token,
         },

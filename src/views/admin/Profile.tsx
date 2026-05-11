@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Mail, Shield, User, MapPin, Building, Key, Loader2 } from "lucide-react";
 import { auth } from "@/lib/api";
-import { formatDate } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
@@ -235,44 +234,6 @@ export default function AdminProfile() {
             </div>
           </section>
 
-          {/* Account Details Summary */}
-          <section className="rounded-xl border border-border bg-card p-6 shadow-card">
-            <h3 className="text-sm font-semibold tracking-tight text-foreground mb-4">Account Summary</h3>
-            <dl className="space-y-4 text-sm">
-              <div className="flex items-center justify-between py-1 border-b border-border/50 pb-3">
-                <dt className="text-muted-foreground font-medium">Role</dt>
-                <dd className="font-semibold text-foreground flex items-center gap-1.5 capitalize">
-                  <Shield className="h-3.5 w-3.5 text-primary" /> {u.role.replace('_', ' ')}
-                </dd>
-              </div>
-              <div className="flex items-center justify-between py-1 border-b border-border/50 pb-3">
-                <dt className="text-muted-foreground font-medium">Total Work Logs</dt>
-                <dd className="font-semibold text-foreground text-base">{u.totalLogs || 0}</dd>
-              </div>
-              <div className="flex items-center justify-between py-1 border-b border-border/50 pb-3">
-                <dt className="text-muted-foreground font-medium">Joined Workspace</dt>
-                <dd className="font-semibold text-foreground">{formatDate(u.joinedAt)}</dd>
-              </div>
-              <div className="flex items-center justify-between py-1">
-                <dt className="text-muted-foreground font-medium">Status</dt>
-                {u.isActive ? (
-                  <dd className="font-semibold text-success flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-success"></span> Active
-                  </dd>
-                ) : (
-                  <dd className="font-semibold text-destructive flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-destructive"></span> Inactive
-                  </dd>
-                )}
-              </div>
-              {!u.isActive && u.leftAt && (
-                <div className="flex items-center justify-between py-1 border-t border-border/50 pt-3 mt-3">
-                  <dt className="text-muted-foreground font-medium">Last Day</dt>
-                  <dd className="font-semibold text-foreground">{formatDate(u.leftAt)}</dd>
-                </div>
-              )}
-            </dl>
-          </section>
         </aside>
       </div>
     </AppShell>
