@@ -121,9 +121,6 @@ export default function EmployeeProfile() {
                   </p>
                 </div>
               </div>
-              <div className="mt-6 sm:mt-0 pb-1">
-                <Button variant="outline" className="shadow-xs bg-background">Change avatar</Button>
-              </div>
             </div>
           </section>
 

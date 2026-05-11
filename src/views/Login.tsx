@@ -110,7 +110,7 @@ export default function Login() {
           
           {/* subtle Logo Header */}
           <div className="mb-12 text-center lg:text-left">
-            <div className="inline-block p-4 rounded-[2rem] bg-zinc-50 dark:bg-white/5 border border-zinc-100 dark:border-white/5 mb-8 hover:scale-105 transition-transform duration-500">
+            <div className="inline-block p-4 rounded-[2rem] bg-zinc-50 dark:bg-white border border-zinc-100 dark:border-white/5 mb-8 hover:scale-105 transition-transform duration-500">
                <Image 
                  src={logo} 
                  alt="Experience My India" 
@@ -149,9 +149,6 @@ export default function Login() {
                 <label htmlFor="password" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
                   Security Key
                 </label>
-                <button type="button" className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline transition-all">
-                  Forgot?
-                </button>
               </div>
               <div className="relative group">
                 <Input 
