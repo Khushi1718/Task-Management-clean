@@ -6,6 +6,7 @@ export interface IAssignment extends Document {
   title: string; // e.g. "Weekly SEO Sprint"
   status: "pending" | "in_progress" | "completed";
   projectId?: mongoose.Types.ObjectId;
+  priority?: "low" | "medium" | "high";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -38,6 +39,11 @@ const assignmentSchema = new Schema<IAssignment>(
       type: String,
       enum: ["pending", "in_progress", "completed"],
       default: "pending",
+    },
+    priority: {
+      type: String,
+      enum: ["low", "medium", "high"],
+      default: "medium",
     },
   },
   { timestamps: true }

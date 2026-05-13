@@ -371,7 +371,7 @@ export const tasks = {
     });
   },
 
-  getAll: async (type: "assigned_to_me" | "assigned_by_me" | "all" = "assigned_to_me", status?: string, q?: string, date?: string, department?: string, projectId?: string, assignedTo?: string) => {
+  getAll: async (type: "assigned_to_me" | "assigned_by_me" | "all" | "admin_reports" = "assigned_to_me", status?: string, q?: string, date?: string, department?: string, projectId?: string, assignedTo?: string) => {
     const params = new URLSearchParams();
     params.append("type", type);
     if (status) params.append("status", status);
@@ -407,12 +407,86 @@ export const tasks = {
       body: JSON.stringify({ action }),
     });
   },
+
+  updateAssignment: async (id: string, data: {
+    assignedTo: string;
+    title: string;
+    priority?: string;
+    tasks: { _id?: string; title: string; description: string; deadline: string }[];
+  }) => {
+    return apiRequest(`/assignments/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteAssignment: async (id: string) => {
+    return apiRequest(`/assignments/${id}`, {
+      method: "DELETE",
+    });
+  },
 };
 
 // ===== MASTER ADMIN API =====
 export const masterAdmin = {
   getStats: async () => {
     return apiRequest("/master-admin/stats");
+  },
+};
+
+// ===== ADMIN MICRO-TASKS API =====
+export const adminMicroTasks = {
+  // Admin submits a micro-task to master admin
+  submit: async (data: {
+    title: string;
+    description?: string;
+    proofLinks?: string[];
+    proofFiles?: { id: string; name: string; url: string; type: string }[];
+    timeSpent?: number;
+    taskDate?: string;
+  }) => {
+    return apiRequest("/admin/micro-tasks", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Admin gets their own submissions; Master Admin gets all
+  getAll: async (limit = 20, skip = 0, status?: string, date?: string) => {
+    const params = new URLSearchParams();
+    params.append("limit", limit.toString());
+    params.append("skip", skip.toString());
+    if (status && status !== "all") params.append("status", status);
+    if (date) params.append("date", date);
+    return apiRequest(`/admin/micro-tasks?${params.toString()}`);
+  },
+
+  // Master Admin reviews/acknowledges a micro-task
+  review: async (id: string, status: "reviewed" | "acknowledged", masterAdminNote?: string) => {
+    return apiRequest(`/admin/micro-tasks/${id}/review`, {
+      method: "PUT",
+      body: JSON.stringify({ status, masterAdminNote }),
+    });
+  },
+
+  update: async (id: string, data: {
+    title: string;
+    description?: string;
+    proofLinks?: string[];
+    proofFiles?: { id: string; name: string; url: string; type: string }[];
+    timeSpent?: number;
+    taskDate?: string;
+  }) => {
+    return apiRequest(`/admin/micro-tasks/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  delete: async (id: string) => {
+    return apiRequest(`/admin/micro-tasks/${id}`, {
+      method: "DELETE",
+    });
   },
 };
 // ===== FILE UPLOAD API =====

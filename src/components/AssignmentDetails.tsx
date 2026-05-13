@@ -91,7 +91,24 @@ export function AssignmentDetails({
 
   useEffect(() => {
     if (isOpen && assignment) {
-      fetchAssignmentTasks(assignment._id || assignment.id);
+      if (assignment.isMicroTask) {
+        const tasksData = assignment.tasks || [];
+        setAssignmentTasks(tasksData);
+        
+        // Initialize local evidence state
+        const initialEvidence: Record<string, any> = {};
+        tasksData.forEach((t: any, idx: number) => {
+          const id = t._id || `micro-${idx}`;
+          initialEvidence[id] = {
+            completionRemarks: t.completionRemarks || "",
+            evidence: t.evidence || (t.proofLinks?.[0] || ""),
+            evidenceFiles: t.proofFiles || []
+          };
+        });
+        setTaskEvidence(initialEvidence);
+      } else {
+        fetchAssignmentTasks(assignment._id || assignment.id);
+      }
     }
   }, [isOpen, assignment]);
 
@@ -232,9 +249,9 @@ export function AssignmentDetails({
               <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mb-2">Bundle Progress</div>
               <div className="flex items-center gap-4">
                 <div className="h-2.5 w-40 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                   <div className="h-full bg-zinc-900 dark:bg-zinc-50 transition-all duration-1000" style={{ width: `${assignment.progress}%` }} />
+                   <div className="h-full bg-zinc-900 dark:bg-zinc-50 transition-all duration-1000" style={{ width: `${assignment.isMicroTask ? 100 : (assignment.progress || 0)}%` }} />
                 </div>
-                <span className="text-sm font-bold tabular-nums">{Math.round(assignment.progress || 0)}%</span>
+                <span className="text-sm font-bold tabular-nums">{assignment.isMicroTask ? 100 : Math.round(assignment.progress || 0)}%</span>
               </div>
             </div>
           </div>
@@ -247,12 +264,13 @@ export function AssignmentDetails({
                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.3em]">Loading Secure Data...</p>
             </div>
           ) : (
-            assignmentTasks.map((task) => {
-              const evidence = taskEvidence[task._id] || { completionRemarks: "", evidence: "", evidenceFiles: [] };
-              const isExpanded = expandedTasks[task._id] || task.status === 'in_progress';
+            assignmentTasks.map((task, idx) => {
+              const taskId = task._id || `micro-${idx}`;
+              const evidence = taskEvidence[taskId] || { completionRemarks: "", evidence: "", evidenceFiles: [] };
+              const isExpanded = expandedTasks[taskId] || task.status === 'in_progress';
 
               return (
-                <div key={task._id} className={cn(
+                <div key={taskId} className={cn(
                   "rounded-3xl border transition-all duration-300 overflow-hidden",
                   task.status === 'completed' 
                     ? "bg-emerald-50/20 border-emerald-100/50 dark:bg-emerald-950/5 dark:border-emerald-900/20" 
@@ -267,7 +285,7 @@ export function AssignmentDetails({
                           {task.priority}
                         </Badge>
                         <Badge variant="secondary" className="text-[8px] uppercase font-bold tracking-widest bg-zinc-100 dark:bg-zinc-800">
-                          {task.status?.replace('_', ' ')}
+                          {assignment.isMicroTask ? "SUBMITTED" : task.status?.replace('_', ' ')}
                         </Badge>
                       </div>
                       <p className="text-xs text-zinc-500 leading-relaxed font-medium">{task.description}</p>
@@ -279,14 +297,14 @@ export function AssignmentDetails({
                         {formatTime(task.timeSpent || 0)}
                       </div>
                       <div className="flex items-center gap-2">
-                        {task.status !== 'completed' && isAssignee && (
+                        {task.status !== 'completed' && isAssignee && !assignment.isMicroTask && (
                           <>
                             {task.timerStartedAt ? (
-                              <Button size="sm" variant="outline" className="h-9 px-4 text-[9px] font-bold uppercase tracking-widest gap-2 border-rose-200 text-rose-600 hover:bg-rose-50 rounded-xl" onClick={() => handleToggleTimer(task._id, 'stop')}>
+                              <Button size="sm" variant="outline" className="h-9 px-4 text-[9px] font-bold uppercase tracking-widest gap-2 border-rose-200 text-rose-600 hover:bg-rose-50 rounded-xl" onClick={() => handleToggleTimer(taskId, 'stop')}>
                                 <StopCircle className="h-4 w-4" /> Stop
                               </Button>
                             ) : (
-                              <Button size="sm" variant="outline" className="h-9 px-4 text-[9px] font-bold uppercase tracking-widest gap-2 border-zinc-200 text-zinc-600 hover:bg-zinc-50 rounded-xl" onClick={() => handleToggleTimer(task._id, 'start')}>
+                              <Button size="sm" variant="outline" className="h-9 px-4 text-[9px] font-bold uppercase tracking-widest gap-2 border-zinc-200 text-zinc-600 hover:bg-zinc-50 rounded-xl" onClick={() => handleToggleTimer(taskId, 'start')}>
                                 <PlayCircle className="h-4 w-4" /> Start
                               </Button>
                             )}
@@ -302,7 +320,7 @@ export function AssignmentDetails({
                               size="sm" 
                               variant="ghost" 
                               className="h-9 w-9 p-0 rounded-xl hover:bg-zinc-100"
-                              onClick={() => toggleExpand(task._id)}
+                              onClick={() => toggleExpand(taskId)}
                             >
                               {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                             </Button>
@@ -313,7 +331,7 @@ export function AssignmentDetails({
                   </div>
 
                   {/* Submission Form (Inline) */}
-                  {isExpanded && task.status !== 'completed' && isAssignee && (
+                  {isExpanded && task.status !== 'completed' && isAssignee && !assignment.isMicroTask && (
                     <div className="px-6 pb-6 pt-2 border-t border-dashed border-zinc-100 dark:border-zinc-800 space-y-6 bg-zinc-50/30 dark:bg-zinc-900/20">
                       <div className="grid lg:grid-cols-2 gap-6">
                         <div className="space-y-4">

@@ -72,6 +72,7 @@ const masterAdminNav: NavItem[] = [
   { to: "/master-admin/tasks", label: "Enterprise Board", icon: ClipboardList },
   { to: "/master-admin/users", label: "All Users", icon: Users },
   { to: "/master-admin/seo-reports", label: "SEO Reports", icon: TrendingUp },
+  { to: "/master-admin/admin-tasks", label: "Admin Inbox", icon: History },
   { to: "/master-admin/messages", label: "Messages", icon: MessageSquare },
   { to: "/master-admin/profile", label: "My Profile", icon: UserIcon },
 ];

@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "@/lib/router";
 import { AppShell } from "@/components/AppShell";
-import { tasks, auth as authApi, admin, apiRequest, projects, getErrorMessage, files as fileApi } from "@/lib/api";
+import { tasks, auth as authApi, admin, apiRequest, projects, getErrorMessage, files as fileApi, adminMicroTasks } from "@/lib/api";
+import { SubmitMicroTaskModal } from "@/components/SubmitMicroTaskModal";
 
 import { 
   ClipboardList, 
@@ -30,7 +31,10 @@ import {
   Users,
   ShieldCheck,
   ArrowUpRight,
-  Briefcase
+  Briefcase,
+  SendHorizonal,
+  Edit2,
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,7 +71,7 @@ export default function TaskBoard({
 }) {
   const location = useLocation();
   const [activeTasks, setActiveTasks] = useState<any[]>([]);
-  const [type, setType] = useState<"assigned_to_me" | "assigned_by_me" | "all">(
+  const [type, setType] = useState<"assigned_to_me" | "assigned_by_me" | "all" | "admin_reports">(
     (role === "employee" ? "assigned_to_me" : "assigned_by_me")
   );
   const [filterDate, setFilterDate] = useState<string>(initialDate || "");
@@ -76,11 +80,15 @@ export default function TaskBoard({
   const [allProjects, setAllProjects] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSubmitTaskModalOpen, setIsSubmitTaskModalOpen] = useState(false);
   const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
   const [isEvidenceModalOpen, setIsEvidenceModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
+  const [editingMicroTask, setEditingMicroTask] = useState<any>(null);
+  const [availableDepts, setAvailableDepts] = useState<string[]>([]);
   
   // New Assignment Form State
   const [assignmentForm, setAssignmentForm] = useState({
@@ -150,23 +158,59 @@ export default function TaskBoard({
   const fetchTasks = async () => {
     try {
       setIsLoading(true);
-      const res = await tasks.getAll(
-        type, 
-        undefined, 
-        debouncedSearch, 
-        filterDate, 
-        filterDepartment === "all" ? undefined : filterDepartment,
-        filterProjectId === "all" ? undefined : filterProjectId
-      );
-      if (res.success) {
-        // Normalize "Development" to "Tech" in real-time
-        const normalized = (res.data || []).map((assignment: any) => ({
+      
+      // Determine if we should fetch regular tasks
+      const fetchRegular = type !== "admin_reports";
+      
+      // Determine if we should fetch micro-tasks
+      const fetchMicro = 
+        (role === "admin" && (type === "assigned_to_me" || type === "all")) || 
+        (role === "master_admin" && (type === "all" || type === "admin_reports"));
+
+      const [tasksRes, microTasksRes] = await Promise.all([
+        fetchRegular ? tasks.getAll(
+          (type as string) === "admin_reports" ? "all" : (type as any), 
+          undefined, 
+          debouncedSearch, 
+          filterDate, 
+          filterDepartment === "all" ? undefined : filterDepartment,
+          filterProjectId === "all" ? undefined : filterProjectId
+        ) : Promise.resolve({ success: true, data: [] }),
+        fetchMicro ? adminMicroTasks.getAll(100, 0, "all", filterDate) : Promise.resolve({ success: true, data: [] })
+      ]);
+
+      if (tasksRes.success) {
+        let normalized = (tasksRes.data || []).map((assignment: any) => ({
           ...assignment,
-          assignedTo: {
-            ...assignment.assignedTo,
-            team: assignment.assignedTo?.team === "Development" ? "Tech" : assignment.assignedTo?.team
-          }
+          assignedTo: assignment.assignedTo
         }));
+
+        if (microTasksRes.success && microTasksRes.data) {
+          const normalizedMicro = microTasksRes.data.map((mt: any) => ({
+            ...mt,
+            isMicroTask: true,
+            // Map micro-task fields to assignment fields for UI compatibility
+            assignedTo: mt.submittedBy,
+            assignedBy: { name: "Self (Admin Submission)" },
+            status: mt.status === "acknowledged" ? "completed" : "pending",
+            createdAt: mt.submittedAt,
+            progress: 100,
+            totalTasks: 1,
+            completedTasks: 1,
+            pendingTasks: 0,
+            tasks: [{
+              title: mt.title,
+              description: mt.description,
+              status: mt.status === "acknowledged" ? "completed" : "pending",
+              proofLinks: mt.proofLinks,
+              proofFiles: mt.proofFiles,
+              timeSpent: (mt.timeSpent || 0) * 60,
+              taskDate: mt.taskDate
+            }]
+          }));
+          normalized = [...normalized, ...normalizedMicro];
+        }
+
         setActiveTasks(normalized);
       }
     } catch (error) {
@@ -209,11 +253,19 @@ export default function TaskBoard({
         const profile = profileRes.data;
         let allUsers = usersRes.data || [];
         
-        // Normalize "Development" to "Tech" in real-time
-        let filtered = allUsers.map((u: any) => ({
-          ...u,
-          team: u.team === "Development" ? "Tech" : u.team
-        })).filter((u: any) => (u.id || u._id) !== (profile.id || profile._id));
+        let filtered = allUsers.filter((u: any) => (u.id || u._id) !== (profile.id || profile._id));
+
+        // Collect unique departments dynamically
+        const deptSet = new Set<string>();
+        allUsers.forEach((u: any) => {
+          if (u.team) {
+            let t = u.team.trim();
+            // Normalize to Title Case
+            t = t.split(' ').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+            deptSet.add(t);
+          }
+        });
+        setAvailableDepts(Array.from(deptSet).sort());
         
         if (role === "admin") {
           // Admins can only assign to Employees
@@ -235,29 +287,36 @@ export default function TaskBoard({
     fetchUsers();
   }, [type, debouncedSearch, filterDate, filterDepartment, filterProjectId]);
 
-  const handleCreateAssignment = async () => {
+  const handleSubmitAssignment = async () => {
     if (!assignmentForm.title || !assignmentForm.assignedTo) {
       toast.error("Assignment title and assignee are required");
       return;
     }
 
-    const validTasks = assignmentForm.tasks.filter(t => t.title.trim() && t.description.trim() && t.deadline);
+    const validTasks = assignmentForm.tasks.filter(t => t.title.trim() && t.deadline);
     if (validTasks.length === 0) {
-      toast.error("Please add at least one task with a title, description, and deadline");
+      toast.error("Please add at least one task with a title and deadline");
       return;
     }
 
     try {
       const payload = {
         ...assignmentForm,
-        projectId: assignmentForm.projectId === "none" ? undefined : assignmentForm.projectId,
+        projectId: assignmentForm.projectId === "none" || !assignmentForm.projectId ? undefined : assignmentForm.projectId,
         tasks: validTasks
       };
-      console.log("Sending payload:", payload);
-      const res = await tasks.create(payload);
+
+      let res;
+      if (editingAssignmentId) {
+        res = await tasks.updateAssignment(editingAssignmentId, payload as any);
+      } else {
+        res = await tasks.create(payload);
+      }
+
       if (res.success) {
-        toast.success("Assignment created successfully");
+        toast.success(editingAssignmentId ? "Assignment updated successfully" : "Assignment created successfully");
         setIsCreateModalOpen(false);
+        setEditingAssignmentId(null);
         fetchTasks();
         setAssignmentForm({
           title: "",
@@ -269,7 +328,67 @@ export default function TaskBoard({
         setSelectedAssignee(null);
       }
     } catch (error: any) {
-      toast.error(error.message || "Failed to create assignment");
+      toast.error(error.message || "Failed to save assignment");
+    }
+  };
+
+  const handleEditAssignment = async (assignment: any) => {
+    setEditingAssignmentId(assignment._id);
+    
+    try {
+      const tasksRes = await tasks.getAssignmentTasks(assignment._id);
+      if (tasksRes.success) {
+        setAssignmentForm({
+          title: assignment.title,
+          assignedTo: assignment.assignedTo?._id || assignment.assignedTo,
+          projectId: assignment.projectId?._id || assignment.projectId || "",
+          tasks: tasksRes.data.map((t: any) => ({
+            _id: t._id,
+            title: t.title,
+            description: t.description,
+            deadline: new Date(t.deadline).toISOString().split('T')[0],
+            priority: t.priority
+          }))
+        });
+        setSelectedAssignee(assignment.assignedTo);
+        setAssigneeSearch(assignment.assignedTo?.name || "");
+        setIsCreateModalOpen(true);
+      }
+    } catch (err) {
+      toast.error("Failed to load assignment details");
+    }
+  };
+
+  const handleDeleteAssignment = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this assignment bundle? This will remove all associated tasks and cannot be undone.")) return;
+    
+    try {
+      const res = await tasks.deleteAssignment(id);
+      if (res.success) {
+        toast.success("Assignment deleted successfully");
+        fetchTasks();
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete assignment");
+    }
+  };
+
+  const handleEditMicroTask = (assignment: any) => {
+    setEditingMicroTask(assignment);
+    setIsSubmitTaskModalOpen(true);
+  };
+
+  const handleDeleteMicroTask = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this self-submitted task report?")) return;
+    
+    try {
+      const res = await adminMicroTasks.delete(id);
+      if (res.success) {
+        toast.success("Task report deleted successfully");
+        fetchTasks();
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete task report");
     }
   };
 
@@ -367,14 +486,26 @@ export default function TaskBoard({
   };
 
   return (
+    <>
     <AppShell 
       role={role}
-      title={propTitle || "Task Board"}
-      subtitle={propSubtitle || `${activeTasks.length} active assignment bundles in this view.`}
+      title={type === "admin_reports" ? "Admin Accountability Inbox" : (propTitle || "Task Board")}
+      subtitle={type === "admin_reports" ? "Review self-initiated work submissions from admins." : (propSubtitle || `${activeTasks.length} active assignment bundles in this view.`)}
       actions={(role === "master_admin" || role === "admin") && (
-        <Button onClick={() => setIsCreateModalOpen(true)} className="h-9 gap-2 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20">
-          <PlusCircle className="h-4 w-4" /> Create Assignment
-        </Button>
+        <div className="flex items-center gap-3">
+          {role === "admin" && (
+            <Button
+              onClick={() => setIsSubmitTaskModalOpen(true)}
+              variant="outline"
+              className="h-9 gap-2 border-border/50 bg-background hover:bg-accent/10 shadow-sm"
+            >
+              <SendHorizonal className="h-4 w-4" /> Submit Task
+            </Button>
+          )}
+          <Button onClick={() => { setEditingAssignmentId(null); setIsCreateModalOpen(true); }} className="h-9 gap-2 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20">
+            <PlusCircle className="h-4 w-4" /> Create Assignment
+          </Button>
+        </div>
       )}
     >
       <div className="space-y-8 animate-in fade-in duration-500 pb-20">
@@ -387,8 +518,8 @@ export default function TaskBoard({
                   <Plus className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <DialogTitle className="text-xl font-bold">New Assignment Bundle</DialogTitle>
-                  <DialogDescription>Group multiple related tasks into one assignment</DialogDescription>
+                  <DialogTitle className="text-xl font-bold">{editingAssignmentId ? "Update Assignment Bundle" : "New Assignment Bundle"}</DialogTitle>
+                  <DialogDescription>{editingAssignmentId ? "Modify the assignment details and tasks." : "Group multiple related tasks into one assignment"}</DialogDescription>
                 </div>
               </div>
             </DialogHeader>
@@ -548,8 +679,8 @@ export default function TaskBoard({
             
             <DialogFooter className="p-6 bg-accent/5 border-t border-border/50">
               <Button variant="ghost" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
-              <Button onClick={handleCreateAssignment} className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20">
-                Create Assignment Bundle
+              <Button onClick={handleSubmitAssignment} className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20">
+                {editingAssignmentId ? "Update Assignment Bundle" : "Create Assignment Bundle"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -627,11 +758,11 @@ export default function TaskBoard({
           </DialogContent>
         </Dialog>
 
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-6">
+        <div className="mb-6 flex items-center justify-between gap-4 overflow-x-auto pb-2 scrollbar-hide">
           {!hideTabs && (
             <>
               {role === "admin" && (
-                <div className="flex bg-muted/50 p-1 rounded-lg border border-border/50 shadow-sm">
+                <div className="flex bg-muted/50 p-1 rounded-lg border border-border/50 shadow-sm shrink-0">
                   <Button 
                     variant={type === "assigned_to_me" ? "secondary" : "ghost"} 
                     size="sm" 
@@ -654,13 +785,13 @@ export default function TaskBoard({
                     className="h-8 rounded-md text-xs px-4 font-bold uppercase tracking-wider"
                     onClick={() => setType("all")}
                   >
-                    Global View
+                    All
                   </Button>
                 </div>
               )}
 
               {role === "master_admin" && (
-                <div className="flex bg-muted/50 p-1 rounded-lg border border-border/50 shadow-sm">
+                <div className="flex bg-muted/50 p-1 rounded-lg border border-border/50 shadow-sm shrink-0">
                   <Button 
                     variant={type === "assigned_by_me" ? "secondary" : "ghost"} 
                     size="sm" 
@@ -675,19 +806,27 @@ export default function TaskBoard({
                     className="h-8 rounded-md text-xs px-4 font-bold uppercase tracking-wider"
                     onClick={() => setType("all")}
                   >
-                    Global View
+                    All
+                  </Button>
+                  <Button 
+                    variant={type === "admin_reports" ? "secondary" : "ghost"} 
+                    size="sm" 
+                    className="h-8 rounded-md text-xs px-4 font-bold uppercase tracking-wider"
+                    onClick={() => setType("admin_reports")}
+                  >
+                    Admins Reports
                   </Button>
                 </div>
               )}
             </>
           )}
 
-          <div className="flex flex-wrap items-center gap-3 ml-auto">
+          <div className="flex items-center gap-3 shrink-0 ml-auto">
             <div className="relative group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input 
-                className="pl-9 h-10 w-64 bg-background/50 border-border/50 shadow-sm focus:ring-1 focus:w-80 transition-all duration-300" 
-                placeholder="Search by assignment, employee, or admin..." 
+                className="pl-9 h-10 w-48 bg-background/50 border-border/50 shadow-sm focus:ring-1 focus:w-64 transition-all duration-300" 
+                placeholder="Search assignments..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -718,11 +857,9 @@ export default function TaskBoard({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Depts</SelectItem>
-                      <SelectItem value="Design">Design</SelectItem>
-                      <SelectItem value="Tech">Tech</SelectItem>
-                      <SelectItem value="Management">Management</SelectItem>
-                      <SelectItem value="SEO">SEO</SelectItem>
-                      <SelectItem value="Sales">Sales</SelectItem>
+                      {availableDepts.map(dept => (
+                        <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -767,66 +904,133 @@ export default function TaskBoard({
             {activeTasks.map((assignment: any) => (
               <Card key={assignment._id} className="group overflow-hidden border-none shadow-premium bg-background hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
                 <div className={cn("h-1.5 w-full", 
+                  assignment.isMicroTask ? 'bg-indigo-500' :
                   assignment.priority === 'high' ? 'bg-destructive' : 
                   assignment.priority === 'medium' ? 'bg-amber-500' : 'bg-blue-500'
                 )} />
                 <CardHeader className="p-6 pb-4">
                   <div className="flex items-center justify-between mb-4">
-                    <Badge variant="outline" className={cn("text-[9px] uppercase font-bold tracking-widest px-2", getPriorityColor(assignment.priority))}>
-                      {assignment.priority}
-                    </Badge>
+                    <div className="flex flex-wrap gap-2">
+                      {assignment.isMicroTask && (
+                        <Badge variant="secondary" className="text-[9px] uppercase font-black tracking-widest px-2 bg-indigo-500 text-white border-none shadow-sm">
+                          Self-Submitted
+                        </Badge>
+                      )}
+                      {!assignment.isMicroTask && assignment.priority && (
+                        <Badge variant="outline" className={cn("text-[9px] uppercase font-bold tracking-widest px-2", getPriorityColor(assignment.priority))}>
+                          {assignment.priority}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* Edit Logic */}
+                      {((!assignment.isMicroTask && (role === 'master_admin' || (role === 'admin' && (assignment.assignedBy?._id || assignment.assignedBy) === currentUser?._id))) ||
+                        (assignment.isMicroTask && (role === 'master_admin' || (role === 'admin' && (assignment.submittedBy?._id || assignment.submittedBy) === currentUser?._id)))) && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (assignment.isMicroTask) handleEditMicroTask(assignment);
+                            else handleEditAssignment(assignment);
+                          }}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                      )}
+
+                      {/* Delete Logic */}
+                      {((!assignment.isMicroTask && role === 'master_admin') ||
+                        (assignment.isMicroTask && (role === 'master_admin' || (role === 'admin' && (assignment.submittedBy?._id || assignment.submittedBy) === currentUser?._id)))) && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (assignment.isMicroTask) handleDeleteMicroTask(assignment._id);
+                            else handleDeleteAssignment(assignment._id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <CardTitle className="text-lg font-bold group-hover:text-primary transition-colors line-clamp-1">{assignment.title}</CardTitle>
                   
                   <div className="mt-4 grid grid-cols-2 gap-4 pb-2 border-b border-border/30">
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Assigned By</p>
-                      <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-full bg-accent flex items-center justify-center text-[10px] font-bold">
-                          {assignment.assignedBy.name[0]}
+                    {!assignment.isMicroTask && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Assigned By</p>
+                        <div className="flex items-center gap-2">
+                          <div className="h-6 w-6 rounded-full bg-accent flex items-center justify-center text-[10px] font-bold">
+                            {assignment.assignedBy?.name?.[0]}
+                          </div>
+                          <span className="text-xs font-semibold truncate">{assignment.assignedBy?.name}</span>
                         </div>
-                        <span className="text-xs font-semibold truncate">{assignment.assignedBy.name}</span>
                       </div>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Assigned To</p>
+                    )}
+                    <div className={cn("space-y-1", assignment.isMicroTask && "col-span-2")}>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                        {assignment.isMicroTask ? "Submitted By" : "Assigned To"}
+                      </p>
                       <div className="flex items-center gap-2">
                         <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">
-                          {assignment.assignedTo.name[0]}
+                          {assignment.assignedTo?.name?.[0]}
                         </div>
-                        <span className="text-xs font-semibold truncate">{assignment.assignedTo.name}</span>
+                        <span className="text-xs font-semibold truncate">{assignment.assignedTo?.name}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 space-y-3">
-                    <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                      <span>Progress</span>
-                      <span>{Math.round(assignment.progress)}%</span>
+                  {!assignment.isMicroTask && (
+                    <div className="mt-4 space-y-3">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                        <span>Progress</span>
+                        <span>{Math.round(assignment.progress)}%</span>
+                      </div>
+                      <Progress value={assignment.progress} className="h-2 bg-accent/50" />
                     </div>
-                    <Progress value={assignment.progress} className="h-2 bg-accent/50" />
-                  </div>
+                  )}
                 </CardHeader>
                 <CardContent className="p-6 pt-0 space-y-4">
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="p-3 rounded-xl bg-accent/5 border border-border/50 text-center">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Total</p>
-                      <p className="text-sm font-bold">{assignment.totalTasks}</p>
+                  {!assignment.isMicroTask && (
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="p-3 rounded-xl bg-accent/5 border border-border/50 text-center">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Total</p>
+                        <p className="text-sm font-bold">{assignment.totalTasks}</p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-green-500/5 border border-green-500/10 text-center">
+                        <p className="text-[10px] font-bold text-green-600 uppercase mb-1">Done</p>
+                        <p className="text-sm font-bold text-green-600">{assignment.completedTasks}</p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/10 text-center">
+                        <p className="text-[10px] font-bold text-amber-600 uppercase mb-1">Pending</p>
+                        <p className="text-sm font-bold text-amber-600">{assignment.pendingTasks}</p>
+                      </div>
                     </div>
-                    <div className="p-3 rounded-xl bg-green-500/5 border border-green-500/10 text-center">
-                      <p className="text-[10px] font-bold text-green-600 uppercase mb-1">Done</p>
-                      <p className="text-sm font-bold text-green-600">{assignment.completedTasks}</p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/10 text-center">
-                      <p className="text-[10px] font-bold text-amber-600 uppercase mb-1">Pending</p>
-                      <p className="text-sm font-bold text-amber-600">{assignment.pendingTasks}</p>
-                    </div>
-                  </div>
+                  )}
+                  
+                  {assignment.isMicroTask && assignment.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2 italic font-medium bg-accent/5 p-3 rounded-xl border border-dashed border-border/50">
+                      {assignment.description}
+                    </p>
+                  )}
                   
                   <div className="flex items-center justify-between pt-2">
-                     <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground">
-                      <Calendar className="h-3.5 w-3.5" />
-                      {new Date(assignment.createdAt).toLocaleDateString()}
+                     <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold text-muted-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="h-3.5 w-3.5" />
+                        {new Date(assignment.createdAt).toLocaleDateString()}
+                      </div>
+                      {assignment.isMicroTask && assignment.tasks?.[0]?.timeSpent > 0 && (
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 rounded-md">
+                          <Clock className="h-3 w-3" />
+                          {Math.floor(assignment.tasks[0].timeSpent / 3600)}h {Math.floor((assignment.tasks[0].timeSpent % 3600) / 60)}m
+                        </div>
+                      )}
                     </div>
                     <Button 
                       variant="ghost" 
@@ -834,11 +1038,14 @@ export default function TaskBoard({
                       className="h-9 px-4 rounded-xl gap-2 font-bold text-[11px] uppercase tracking-wider hover:bg-primary hover:text-white transition-all border border-transparent hover:border-primary"
                       onClick={() => {
                         setSelectedAssignment(assignment);
-                        fetchAssignmentTasks(assignment._id);
+                        // For micro-tasks, we don't need to fetch sub-tasks as they are pre-loaded
+                        if (!assignment.isMicroTask) {
+                          fetchAssignmentTasks(assignment._id);
+                        }
                         setIsTasksModalOpen(true);
                       }}
                     >
-                      View Bundle <ArrowRight className="h-3.5 w-3.5" />
+                      {assignment.isMicroTask ? "View Report" : "View Bundle"} <ArrowRight className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </CardContent>
@@ -848,5 +1055,16 @@ export default function TaskBoard({
         )}
       </div>
     </AppShell>
+
+    {/* Submit Task Modal — admin accountability */}
+    {role === "admin" && (
+      <SubmitMicroTaskModal
+        open={isSubmitTaskModalOpen}
+        onOpenChange={setIsSubmitTaskModalOpen}
+        onSuccess={fetchTasks}
+        initialData={editingMicroTask}
+      />
+    )}
+  </>
   );
 }

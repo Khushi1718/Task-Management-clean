@@ -8,6 +8,7 @@ import Message from "@/server/models/Message";
 import Notification from "@/server/models/Notification";
 import Task from "@/server/models/Task";
 import Assignment from "@/server/models/Assignment";
+import AdminMicroTask from "@/server/models/AdminMicroTask";
 import Project from "@/server/models/Project";
 import { generateToken, verifyToken, type JWTPayload } from "@/server/jwt";
 import { uploadToCloudinary } from "@/server/cloudinary";
@@ -512,8 +513,49 @@ export async function POST(request: NextRequest, context: any) {
 
 
 
+  // POST /admin/micro-tasks — Admin submits a self-accountability micro-task to master admin
+  if (path === "/admin/micro-tasks") {
+    const auth = requireAuth(request);
+    if (auth.response) return auth.response;
 
+    // Only admins can submit micro-tasks this way
+    if (auth.user.role !== "admin") {
+      return fail(403, "Only Admins can submit micro-tasks via this route");
+    }
 
+    const { title, description, proofLinks, proofFiles, timeSpent, taskDate } = body;
+
+    if (!title || !title.trim()) {
+      return fail(400, "Task title is required");
+    }
+
+    try {
+      const microTask = await AdminMicroTask.create({
+        submittedBy: new Types.ObjectId(auth.user.userId),
+        title: title.trim(),
+        description: description?.trim() || "",
+        proofLinks: Array.isArray(proofLinks) ? proofLinks.filter((l: string) => l.trim()) : [],
+        proofFiles: Array.isArray(proofFiles) ? proofFiles : [],
+        timeSpent: Number(timeSpent) || 0,
+        taskDate: taskDate ? new Date(taskDate) : new Date(),
+        status: "pending",
+        submittedAt: new Date(),
+      });
+
+      logActivity(request, {
+        userId: auth.user.userId,
+        action: "submit_micro_task",
+        resourceType: "task",
+        resourceId: microTask._id.toString(),
+        details: { title: microTask.title },
+      });
+
+      return ok("Micro-task submitted to master admin successfully", microTask, 201);
+    } catch (error: any) {
+      console.error("MICRO_TASK_CREATE_ERROR:", error);
+      return fail(500, "Failed to submit micro-task");
+    }
+  }
 
   return fail(404, "Route not found");
   } catch (error: any) {
@@ -1307,6 +1349,56 @@ export async function GET(request: NextRequest, context: Context) {
     return ok("Master stats retrieved", stats);
   }
 
+  // GET /admin/micro-tasks — Admin sees their own submissions; Master Admin sees all
+  if (path === "/admin/micro-tasks") {
+    const auth = requireAuth(request);
+    if (auth.response) return auth.response;
+
+    if (auth.user.role !== "admin" && auth.user.role !== "master_admin") {
+      return fail(403, "Access denied");
+    }
+
+    const limitNum = boundedNumber(query.get("limit"), 20, 100);
+    const skipNum = parseInt(query.get("skip") || "", 10) || 0;
+    const statusFilter = query.get("status");
+    const dateFilter = query.get("date"); // YYYY-MM-DD
+
+    const filter: any = {};
+
+    // Admins only see their own; Master Admins see all
+    if (auth.user.role === "admin") {
+      filter.submittedBy = new Types.ObjectId(auth.user.userId);
+    }
+
+    if (statusFilter && statusFilter !== "all") {
+      filter.status = statusFilter;
+    }
+
+    if (dateFilter) {
+      const start = new Date(dateFilter);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(dateFilter);
+      end.setHours(23, 59, 59, 999);
+      filter.taskDate = { $gte: start, $lte: end };
+    }
+
+    const [microTasks, total] = await Promise.all([
+      AdminMicroTask.find(filter)
+        .populate("submittedBy", "name email team role")
+        .sort({ submittedAt: -1 })
+        .limit(limitNum)
+        .skip(skipNum)
+        .lean(),
+      AdminMicroTask.countDocuments(filter),
+    ]);
+
+    return ok("Micro-tasks retrieved", microTasks, 200, {
+      total,
+      limit: limitNum,
+      skip: skipNum,
+    });
+  }
+
     return fail(404, "Route not found");
   } catch (error: any) {
     console.error(`GET ${getPath(context)} error:`, error);
@@ -1368,6 +1460,80 @@ export async function PUT(request: NextRequest, context: Context) {
     });
 
     return ok("Password updated successfully");
+  }
+
+  const assignmentDetailMatch = path.match(/^\/assignments\/([^/]+)$/);
+  if (assignmentDetailMatch) {
+    const auth = requireAdmin(request);
+    if (auth.response) return auth.response;
+    const assignmentId = assignmentDetailMatch[1];
+
+    const { assignedTo, title, tasks: tasksData, priority, projectId } = body;
+    if (!assignedTo || !title || !tasksData || !Array.isArray(tasksData)) {
+      return fail(400, "Missing required fields");
+    }
+
+    const assignment = await Assignment.findById(assignmentId);
+    if (!assignment) return fail(404, "Assignment not found");
+
+    if (assignment.assignedBy.toString() !== auth.user.userId && auth.user.role !== "master_admin") {
+      return fail(403, "Not authorized to edit this assignment");
+    }
+
+    assignment.title = title.trim();
+    assignment.assignedTo = new Types.ObjectId(assignedTo);
+    if (priority) assignment.priority = priority;
+    if (projectId) assignment.projectId = new Types.ObjectId(projectId);
+    await assignment.save();
+
+    const existingTasks = await Task.find({ assignmentId });
+    const existingTaskIds = existingTasks.map(t => t._id.toString());
+    const incomingTaskIds = tasksData.filter(t => t._id).map(t => t._id);
+
+    const tasksToDelete = existingTaskIds.filter(id => !incomingTaskIds.includes(id));
+    if (tasksToDelete.length > 0) {
+      await Task.deleteMany({ _id: { $in: tasksToDelete.map(id => new Types.ObjectId(id)) } });
+    }
+
+    const parseDate = (d: string) => {
+      if (!d) return null;
+      if (d.includes("-") && d.split("-")[0].length === 4) return new Date(d);
+      const p = d.split("/");
+      if (p.length === 3) return new Date(Number(p[2]), Number(p[1]) - 1, Number(p[0]));
+      return new Date(d);
+    };
+
+    for (const tData of tasksData) {
+      const deadline = parseDate(tData.deadline);
+      if (tData._id) {
+        await Task.findByIdAndUpdate(tData._id, {
+          title: tData.title?.trim(),
+          description: tData.description?.trim(),
+          priority: tData.priority?.toLowerCase() || "medium",
+          deadline: deadline || undefined
+        });
+      } else {
+        const newTask = new Task({
+          assignmentId: assignment._id,
+          title: tData.title?.trim(),
+          description: (tData.description || "No description").trim(),
+          priority: tData.priority?.toLowerCase() || "medium",
+          deadline: deadline || new Date(),
+          status: "pending",
+          timeSpent: 0
+        });
+        await newTask.save();
+      }
+    }
+
+    logActivity(request, {
+      userId: auth.user.userId,
+      action: "update_assignment",
+      resourceType: "user",
+      resourceId: assignmentId,
+    });
+
+    return ok("Assignment updated successfully");
   }
 
   const projectDetailMatch = path.match(/^\/projects\/([^/]+)$/);
@@ -1698,6 +1864,68 @@ export async function PUT(request: NextRequest, context: Context) {
     return ok(`Timer ${action}ed`, task);
   }
 
+  const microTaskUpdateMatch = path.match(/^\/admin\/micro-tasks\/([^/]+)$/);
+  if (microTaskUpdateMatch) {
+    const auth = requireAdmin(request);
+    if (auth.response) return auth.response;
+    const microTaskId = microTaskUpdateMatch[1];
+
+    const microTask = await AdminMicroTask.findById(microTaskId);
+    if (!microTask) return fail(404, "Micro-task not found");
+
+    if (microTask.submittedBy.toString() !== auth.user.userId && auth.user.role !== "master_admin") {
+      return fail(403, "Not authorized to update this micro-task");
+    }
+
+    const fields = ["title", "description", "proofLinks", "proofFiles", "timeSpent", "taskDate"];
+    fields.forEach(f => {
+      if (body[f] !== undefined) (microTask as any)[f] = body[f];
+    });
+
+    await microTask.save();
+    return ok("Micro-task updated successfully", microTask);
+  }
+
+  // PUT /admin/micro-tasks/:id/review — Master Admin reviews/acknowledges a micro-task
+  const microTaskReviewMatch = path.match(/^\/admin\/micro-tasks\/([^/]+)\/review$/);
+  if (microTaskReviewMatch) {
+    const auth = requireMasterAdmin(request);
+    if (auth.response) return auth.response;
+
+    const microTaskId = microTaskReviewMatch[1];
+    if (!Types.ObjectId.isValid(microTaskId)) {
+      return fail(400, "Invalid micro-task ID");
+    }
+
+    const { status, masterAdminNote } = body;
+
+    if (!status || !["reviewed", "acknowledged"].includes(status)) {
+      return fail(400, "Status must be 'reviewed' or 'acknowledged'");
+    }
+
+    const microTask = await AdminMicroTask.findByIdAndUpdate(
+      microTaskId,
+      {
+        status,
+        masterAdminNote: masterAdminNote?.trim() || "",
+        reviewedAt: new Date(),
+      },
+      { new: true }
+    ).populate("submittedBy", "name email team role");
+
+    if (!microTask) return fail(404, "Micro-task not found");
+
+    logActivity(request, {
+      userId: auth.user.userId,
+      action: "review_micro_task",
+      resourceType: "task",
+      resourceId: microTaskId,
+      details: { status, microTaskTitle: microTask.title },
+    });
+
+    return ok("Micro-task reviewed successfully", microTask);
+  }
+
     return fail(404, "Route not found");
   } catch (error: any) {
     console.error(`PUT ${getPath(context)} error:`, error);
@@ -1733,6 +1961,25 @@ export async function DELETE(request: NextRequest, context: Context) {
     );
 
     return ok("Conversation cleared");
+  }
+
+  const assignmentDeleteMatch = path.match(/^\/assignments\/([^/]+)$/);
+  if (assignmentDeleteMatch) {
+    const auth = requireMasterAdmin(request);
+    if (auth.response) return auth.response;
+    const assignmentId = assignmentDeleteMatch[1];
+
+    await Task.deleteMany({ assignmentId: new Types.ObjectId(assignmentId) });
+    await Assignment.findByIdAndDelete(assignmentId);
+
+    logActivity(request, {
+      userId: auth.user.userId,
+      action: "delete_assignment",
+      resourceType: "user",
+      resourceId: assignmentId,
+    });
+
+    return ok("Assignment and its tasks deleted successfully");
   }
 
   const projectDetailMatch = path.match(/^\/projects\/([^/]+)$/);
@@ -1777,6 +2024,23 @@ export async function DELETE(request: NextRequest, context: Context) {
     });
 
     return ok("Work log deleted successfully");
+  }
+
+  const microTaskDeleteMatch = path.match(/^\/admin\/micro-tasks\/([^/]+)$/);
+  if (microTaskDeleteMatch) {
+    const auth = requireAdmin(request);
+    if (auth.response) return auth.response;
+    const microTaskId = microTaskDeleteMatch[1];
+
+    const microTask = await AdminMicroTask.findById(microTaskId);
+    if (!microTask) return fail(404, "Micro-task not found");
+
+    if (microTask.submittedBy.toString() !== auth.user.userId && auth.user.role !== "master_admin") {
+      return fail(403, "Not authorized to delete this micro-task");
+    }
+
+    await AdminMicroTask.findByIdAndDelete(microTaskId);
+    return ok("Micro-task deleted successfully");
   }
 
   return fail(404, "Route not found");

@@ -153,8 +153,27 @@ export default function AllUsers() {
   const [page, setPage] = useState(1);
   const limit = 20;
 
+  const [availableDepts, setAvailableDepts] = useState<string[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Collect unique departments dynamically
+  useEffect(() => {
+    if (users.length > 0) {
+      const deptSet = new Set<string>();
+      users.forEach((u: any) => {
+        if (u.team) {
+          let t = u.team.trim();
+          t = t.split(' ').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+          deptSet.add(t);
+        }
+      });
+      setAvailableDepts(prev => {
+        const next = new Set([...prev, ...Array.from(deptSet)]);
+        return Array.from(next).sort();
+      });
+    }
+  }, [users]);
 
   // Read query params on mount
   useEffect(() => {
@@ -232,10 +251,9 @@ export default function AllUsers() {
                  </SelectTrigger>
                  <SelectContent className="rounded-lg border-zinc-200 dark:border-zinc-800">
                     <SelectItem value="all" className="text-xs font-bold">All Departments</SelectItem>
-                    <SelectItem value="Tech" className="text-xs font-bold uppercase">Tech</SelectItem>
-                    <SelectItem value="SEO" className="text-xs font-bold uppercase">SEO</SelectItem>
-                    <SelectItem value="Editing" className="text-xs font-bold uppercase">Editing</SelectItem>
-                    <SelectItem value="Management" className="text-xs font-bold uppercase">Management</SelectItem>
+                    {availableDepts.map(dept => (
+                      <SelectItem key={dept} value={dept} className="text-xs font-bold uppercase">{dept}</SelectItem>
+                    ))}
                  </SelectContent>
               </Select>
 

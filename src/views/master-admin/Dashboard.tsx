@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { AppShell } from "@/components/AppShell";
-import { auth, tasks, admin } from "@/lib/api";
+import { auth, tasks, admin, adminMicroTasks } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { cn } from "@/lib/utils";
@@ -97,19 +97,44 @@ export default function MasterAdminDashboard() {
         
         // Parallelize all major data fetching
         const tasksPromise = tasks.getAll("all");
+        const microTasksPromise = adminMicroTasks.getAll(100, 0, "all");
         const usersPromise = admin.getAllUsers();
         const profilePromise = !storeUser ? auth.getProfile() : Promise.resolve({ success: true, data: storeUser });
 
-        const [profileRes, tasksRes, usersRes] = await Promise.all([
+        const [profileRes, tasksRes, usersRes, microTasksRes] = await Promise.all([
           profilePromise,
           tasksPromise,
-          usersPromise
+          usersPromise,
+          microTasksPromise
         ]);
 
         if (profileRes.success) setUser(profileRes.data);
 
         
-        const assignmentsData = tasksRes.data || [];
+        let assignmentsData = tasksRes.data || [];
+        
+        // Merge micro-tasks
+        if (microTasksRes.success && microTasksRes.data) {
+          const normalizedMicro = microTasksRes.data.map((mt: any) => ({
+            ...mt,
+            isMicroTask: true,
+            status: mt.status === "acknowledged" ? "completed" : "pending",
+            createdAt: mt.submittedAt,
+            progress: 100,
+            totalTasks: 1,
+            completedTasks: 1,
+            pendingTasks: 0,
+            tasks: [{
+              title: mt.title,
+              description: mt.description,
+              status: mt.status === "acknowledged" ? "completed" : "pending",
+              completedAt: mt.status === "acknowledged" ? mt.submittedAt : null,
+              timeSpent: (mt.timeSpent || 0) * 60,
+              taskDate: mt.taskDate
+            }]
+          }));
+          assignmentsData = [...assignmentsData, ...normalizedMicro];
+        }
         const usersData = usersRes.data || [];
         
         setAllAssignments(assignmentsData);
@@ -159,9 +184,16 @@ export default function MasterAdminDashboard() {
         });
 
         // Collect unique teams/departments from users
-        const teams = Array.from(new Set(usersData.map((u: any) => 
-          u.team === "Development" ? "Tech" : u.team
-        ).filter(Boolean))) as string[];
+        const teamSet = new Set<string>();
+        usersData.forEach((u: any) => {
+          if (!u.team) return;
+          let t = u.team.trim();
+          // Normalize to Title Case to avoid duplicates like "SEO" and "seo"
+          t = t.split(' ').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+          teamSet.add(t);
+        });
+        
+        const teams = Array.from(teamSet).sort().slice(0, 8);
         setAvailableTeams(teams);
 
         // Admin Performance

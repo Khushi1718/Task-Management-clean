@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { Link } from "@/lib/router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
-import { admin, auth, tasks } from "@/lib/api";
+import { admin, auth, tasks, adminMicroTasks } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { cn } from "@/lib/utils";
-
+import { SubmitMicroTaskModal } from "@/components/SubmitMicroTaskModal";
 
 import { 
   CheckCircle2, 
@@ -28,7 +28,8 @@ import {
   ChevronRight,
   ArrowDownCircle,
   ArrowUpCircle,
-  History
+  History,
+  SendHorizonal
 } from "lucide-react";
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
 import { toast } from "sonner";
@@ -64,6 +65,7 @@ export default function AdminDashboard() {
   const [allAssignments, setAllAssignments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [graphRange, setGraphRange] = useState<"this" | "last">("this");
+  const [isMicroTaskModalOpen, setIsMicroTaskModalOpen] = useState(false);
 
   const [byAdminStats, setByAdminStats] = useState({
     total: 0, completed: 0, pending: 0, todayTotal: 0, todayCompleted: 0, todayPending: 0
@@ -82,11 +84,13 @@ export default function AdminDashboard() {
         
         // Parallelize data fetching but skip profile if we have it
         const tasksPromise = tasks.getAll("all");
+        const microTasksPromise = adminMicroTasks.getAll(100, 0, "all");
         const profilePromise = !storeUser ? auth.getProfile() : Promise.resolve({ success: true, data: storeUser });
 
-        const [profileRes, tasksRes] = await Promise.all([
+        const [profileRes, tasksRes, microTasksRes] = await Promise.all([
           profilePromise,
-          tasksPromise
+          tasksPromise,
+          microTasksPromise
         ]);
 
         if (!profileRes.success) throw new Error("Profile fetch failed");
@@ -95,7 +99,32 @@ export default function AdminDashboard() {
         setUser(myProfile);
 
         
-        const assignmentsData = tasksRes.data || [];
+        let assignmentsData = tasksRes.data || [];
+        
+        // Merge micro-tasks as self-assignments
+        if (microTasksRes.success && microTasksRes.data) {
+          const normalizedMicro = microTasksRes.data.map((mt: any) => ({
+            ...mt,
+            isMicroTask: true,
+            assignedTo: mt.submittedBy,
+            assignedBy: { name: "Self (Admin Submission)" },
+            status: mt.status === "acknowledged" ? "completed" : "pending",
+            createdAt: mt.submittedAt,
+            progress: 100,
+            totalTasks: 1,
+            completedTasks: 1,
+            pendingTasks: 0,
+            tasks: [{
+              title: mt.title,
+              description: mt.description,
+              status: mt.status === "acknowledged" ? "completed" : "pending",
+              completedAt: mt.status === "acknowledged" ? mt.submittedAt : null,
+              timeSpent: (mt.timeSpent || 0) * 60,
+              taskDate: mt.taskDate
+            }]
+          }));
+          assignmentsData = [...assignmentsData, ...normalizedMicro];
+        }
         const myId = String(myProfile?._id || myProfile?.id || "");
 
         const now = new Date();
@@ -234,6 +263,7 @@ export default function AdminDashboard() {
 
 
   return (
+    <>
     <AppShell role="admin" title="Operations Control">
       <div className="max-w-[1600px] mx-auto px-10 py-12 space-y-12 pb-24">
         
@@ -246,6 +276,13 @@ export default function AdminDashboard() {
             <p className="text-[11px] font-black text-zinc-400 uppercase tracking-[0.4em] mt-3">Orchestrating excellence • Leading with strategic execution</p>
           </div>
           <div className="flex items-center gap-4">
+             <Button
+               onClick={() => setIsMicroTaskModalOpen(true)}
+               variant="outline"
+               className="h-12 px-6 rounded-2xl border-zinc-200 bg-white shadow-sm text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] hover:border-zinc-900 hover:bg-zinc-950 hover:text-white transition-all gap-2"
+             >
+               <SendHorizonal className="h-4 w-4" /> Submit a Task
+             </Button>
              <Button asChild variant="outline" className="h-12 px-6 rounded-2xl border-zinc-200 bg-white shadow-sm text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] transition-all">
                 <Link to="/admin/today">Live Feed</Link>
              </Button>
@@ -394,5 +431,12 @@ export default function AdminDashboard() {
 
       </div>
     </AppShell>
+
+    {/* Submit Micro Task Modal */}
+    <SubmitMicroTaskModal
+      open={isMicroTaskModalOpen}
+      onOpenChange={setIsMicroTaskModalOpen}
+    />
+  </>
   );
 }

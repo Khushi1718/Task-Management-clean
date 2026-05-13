@@ -37,6 +37,7 @@ const Notifications = dynamic(() => import("@/views/shared/Notifications"), { lo
 const Projects = dynamic(() => import("@/views/shared/Projects"), { loading: () => <LoadingView /> });
 const ProjectDetail = dynamic(() => import("@/views/shared/ProjectDetail"), { loading: () => <LoadingView /> });
 const MasterAdminDashboard = dynamic(() => import("@/views/master-admin/Dashboard"), { loading: () => <LoadingView /> });
+const AdminMicroTasksView = dynamic(() => import("@/views/master-admin/AdminMicroTasks"), { loading: () => <LoadingView /> });
 const TaskBoard = dynamic(() => import("@/views/shared/TaskBoard"), { loading: () => <LoadingView /> });
 
 
@@ -89,6 +90,7 @@ export default function Page() {
   if (pathname.startsWith("/master-admin/seo-reports/")) return <SEODetail />;
   if (pathname === "/master-admin/profile") return <AdminProfile />;
   if (pathname === "/master-admin/messages") return <Messaging />;
+  if (pathname === "/master-admin/admin-tasks") return <AdminMicroTasksView />;
 
   // Shared
   if (pathname === "/notifications") return <Notifications />;
