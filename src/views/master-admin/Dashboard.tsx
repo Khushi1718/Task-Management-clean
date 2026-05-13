@@ -267,7 +267,7 @@ export default function MasterAdminDashboard() {
 
   if (isLoading) {
     return (
-      <AppShell role="master_admin" title="Global Overview">
+      <AppShell role="master_admin" title="Global Intel">
         <DashboardSkeleton />
       </AppShell>
     );
@@ -275,8 +275,8 @@ export default function MasterAdminDashboard() {
 
 
   return (
-    <AppShell role="master_admin" title="Global Overview">
-      <div className="max-w-[1600px] mx-auto px-10 py-12 space-y-12 pb-24">
+    <AppShell role="master_admin" title="Global Intel">
+      <div className="max-w-[1600px] mx-auto px-4 md:px-6 py-12 space-y-12 pb-24">
         
         {/* DYNAMIC GREETING HEADER */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-8">
@@ -310,7 +310,7 @@ export default function MasterAdminDashboard() {
                 { label: "Finished", value: stats.completedTasks, icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-50/30" },
                 { label: "Pending", value: stats.pendingTasks, icon: Clock, color: "text-amber-500", bg: "bg-amber-50/30" }
               ].map((s, i) => (
-                <div key={i} className={cn("p-7 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all group", s.bg)}>
+                <div key={i} className={cn("p-5 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all group", s.bg)}>
                   <div className="flex items-center justify-between mb-4">
                     <s.icon className={cn("h-5 w-5", s.color)} />
                     <span className="text-2xl font-black tracking-tighter"><CountUp value={s.value} /></span>
@@ -333,7 +333,7 @@ export default function MasterAdminDashboard() {
                 { label: "Today Pending", value: stats.todayPending, icon: Clock, color: "text-zinc-400", bg: "bg-zinc-50" },
                 { label: "Deadlines Missed", value: stats.todayOverdue, icon: AlertTriangle, color: "text-rose-500", bg: "bg-rose-50/30" }
               ].map((s, i) => (
-                <div key={i} className={cn("p-7 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all group", s.bg)}>
+                <div key={i} className={cn("p-5 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all group", s.bg)}>
                   <div className="flex items-center justify-between mb-4">
                     <s.icon className={cn("h-5 w-5", s.color)} />
                     <span className="text-2xl font-black tracking-tighter"><CountUp value={s.value} /></span>
@@ -355,7 +355,7 @@ export default function MasterAdminDashboard() {
                 { label: "Admins", value: stats.adminsCount, icon: ShieldCheck, color: "text-blue-600", bg: "bg-blue-50/30" },
                 { label: "Active Work Bundles", value: allAssignments.length, icon: Layers, color: "text-emerald-600", bg: "bg-emerald-50/30", full: true }
               ].map((s, i) => (
-                <div key={i} className={cn("p-7 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all", s.bg, s.full && "col-span-2")}>
+                <div key={i} className={cn("p-5 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all", s.bg, s.full && "col-span-2")}>
                   <div className="flex items-center justify-between mb-4">
                     <s.icon className={cn("h-5 w-5", s.color)} />
                     <span className="text-2xl font-black tracking-tighter"><CountUp value={s.value} /></span>
@@ -371,7 +371,7 @@ export default function MasterAdminDashboard() {
           
           <div className="lg:col-span-8 space-y-12">
             {/* WEEKLY PERFORMANCE GRAPH */}
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-[48px] p-10 shadow-sm">
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-[48px] p-6 md:p-10 shadow-sm">
                <header className="flex items-center justify-between mb-12">
                   <div>
                     <h2 className="text-[13px] font-black text-zinc-950 dark:text-zinc-50 uppercase tracking-[0.4em]">Weekly Work Report</h2>
@@ -408,22 +408,22 @@ export default function MasterAdminDashboard() {
             </div>
 
             {/* MANAGE TEAMS SECTION */}
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-[48px] p-10 shadow-sm">
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-[48px] p-6 md:p-10 shadow-sm">
                <h2 className="text-[13px] font-black text-zinc-950 dark:text-zinc-50 uppercase tracking-[0.4em] mb-10 flex items-center gap-3">
                  <Monitor className="h-5 w-5 text-zinc-400" /> Manage Departments
                </h2>
                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Link to="/master-admin/users?role=admin" className="flex flex-col items-center justify-center p-8 bg-zinc-950 text-white rounded-[32px] hover:scale-[1.03] transition-all shadow-xl group">
+                  <Link to="/master-admin/users?role=admin" className="flex flex-col items-center justify-center p-6 bg-zinc-950 text-white rounded-[32px] hover:scale-[1.03] transition-all shadow-xl group">
                     <Shield className="h-6 w-6 mb-4 text-blue-400 group-hover:scale-110 transition-transform" />
-                    <span className="text-[11px] font-black uppercase tracking-[0.2em]">Admins</span>
+                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-center px-1">Admins</span>
                     <span className="text-[9px] font-bold opacity-40 mt-1 uppercase tracking-tighter text-center">Manage Admins</span>
                   </Link>
 
                   {availableTeams.map((team, i) => (
-                    <Link key={i} to={`/master-admin/users?department=${team}`} className="flex flex-col items-center justify-center p-8 bg-zinc-50 hover:bg-zinc-100 rounded-[32px] border border-zinc-100 transition-all hover:scale-[1.03] group">
+                    <Link key={i} to={`/master-admin/users?department=${team}`} className="flex flex-col items-center justify-center p-6 bg-zinc-50 hover:bg-zinc-100 rounded-[32px] border border-zinc-100 transition-all hover:scale-[1.03] group min-w-0">
                       <Briefcase className={cn("h-6 w-6 mb-4 transition-transform group-hover:scale-110", i % 2 === 0 ? "text-amber-500" : "text-emerald-500")} />
                       <span className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-900 text-center truncate w-full px-2">{team}</span>
-                      <span className="text-[9px] font-bold text-zinc-400 mt-1 uppercase tracking-tighter">View Members</span>
+                      <span className="text-[9px] font-bold text-zinc-400 mt-1 uppercase tracking-tighter text-center">View Members</span>
                     </Link>
                   ))}
                </div>
@@ -433,21 +433,21 @@ export default function MasterAdminDashboard() {
 
           {/* SIDEBAR */}
           <div className="lg:col-span-4 space-y-10">
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-[48px] p-12 shadow-sm">
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-[48px] p-6 md:p-10 shadow-sm">
                <h2 className="text-[13px] font-black text-zinc-950 dark:text-zinc-50 uppercase tracking-[0.4em] mb-12">Latest Activity</h2>
-               <div className="space-y-10">
+                <div className="space-y-8">
                   {allAssignments.slice(0, 5).map((a, i) => (
-                    <div key={i} className="group flex items-center justify-between">
-                       <div className="flex items-center gap-6">
-                          <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center shadow-sm", a.progress === 100 ? "bg-emerald-50 text-emerald-500" : "bg-blue-50 text-blue-500")}>
+                    <div key={i} className="group flex items-center justify-between gap-4">
+                       <div className="flex items-center gap-4 min-w-0">
+                          <div className={cn("h-11 w-11 shrink-0 rounded-2xl flex items-center justify-center shadow-sm", a.progress === 100 ? "bg-emerald-50 text-emerald-500" : "bg-blue-50 text-blue-500")}>
                              <ClipboardList className="h-5 w-5" />
                           </div>
                           <div className="min-w-0">
-                             <p className="text-[14px] font-black text-zinc-950 truncate mb-1">{a.title}</p>
-                             <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">{a.assignedTo?.name} • {Math.round(a.progress)}% Done</p>
+                             <p className="text-[13px] font-black text-zinc-950 truncate mb-0.5">{a.title}</p>
+                             <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter truncate">{a.assignedTo?.name} • {Math.round(a.progress)}% Done</p>
                           </div>
                        </div>
-                       <Link to="/master-admin/tasks" className="h-9 w-9 rounded-full bg-zinc-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                       <Link to="/master-admin/tasks" className="h-9 w-9 shrink-0 rounded-full bg-zinc-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
                           <ArrowUpRight className="h-4 w-4" />
                        </Link>
                     </div>
