@@ -26,7 +26,7 @@ import {
   X,
   Zap
 } from "lucide-react";
-import { admin, tasks, auth, projects } from "@/lib/api";
+import { admin, tasks, auth, projects, adminMicroTasks } from "@/lib/api";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -72,15 +72,59 @@ export default function UserDetail() {
           tasks.getAll("all", undefined, undefined, undefined, undefined, pId || undefined)
         ]);
 
-        if (userRes.success) setU(userRes.data);
-        if (profileRes.success) setCurrentUser(profileRes.data);
-        
-        if (assignmentsRes.success && assignmentsRes.data) {
-          const filtered = assignmentsRes.data.filter((a: any) => 
-            (a.assignedTo?._id || a.assignedTo?.id || a.assignedTo) === id
-          );
-          setUserAssignments(filtered);
+        if (userRes.success) {
+          const userData = userRes.data;
+          setU(userData);
+          
+          // Fetch micro-tasks if the user is an admin
+          if (userData.role === "admin") {
+            const microRes = await adminMicroTasks.getAll(100, 0, "all", undefined, id);
+            if (microRes.success && microRes.data) {
+              const normalizedMicro = microRes.data.map((m: any) => ({
+                ...m,
+                isMicroTask: true,
+                progress: 100, // Submitted micro-tasks are considered completed
+                assignedBy: m.submittedBy,
+                createdAt: m.submittedAt || m.createdAt,
+                tasks: [{
+                  _id: m._id,
+                  title: m.title,
+                  description: m.description,
+                  status: "completed",
+                  timeSpent: (m.timeSpent || 0) * 60, // Convert minutes to seconds for modal
+                  priority: "medium",
+                  completedAt: m.reviewedAt || m.submittedAt,
+                  completionRemarks: m.masterAdminNote,
+                  evidence: m.proofLinks?.[0] || "",
+                  evidenceFiles: m.proofFiles || []
+                }]
+              }));
+              
+              if (assignmentsRes.success && assignmentsRes.data) {
+                const filtered = assignmentsRes.data.filter((a: any) => 
+                  (a.assignedTo?._id || a.assignedTo?.id || a.assignedTo) === id
+                );
+                setUserAssignments([...filtered, ...normalizedMicro].sort((a, b) => 
+                  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                ));
+              } else {
+                setUserAssignments(normalizedMicro);
+              }
+            } else if (assignmentsRes.success && assignmentsRes.data) {
+              const filtered = assignmentsRes.data.filter((a: any) => 
+                (a.assignedTo?._id || a.assignedTo?.id || a.assignedTo) === id
+              );
+              setUserAssignments(filtered);
+            }
+          } else if (assignmentsRes.success && assignmentsRes.data) {
+            const filtered = assignmentsRes.data.filter((a: any) => 
+              (a.assignedTo?._id || a.assignedTo?.id || a.assignedTo) === id
+            );
+            setUserAssignments(filtered);
+          }
         }
+        
+        if (profileRes.success) setCurrentUser(profileRes.data);
       } catch (err) {
         console.error(err);
       } finally {
@@ -278,13 +322,20 @@ export default function UserDetail() {
                  .length > 0 ? paginatedTasks
                  .filter(a => projectFilter === "all" || a.projectId === projectFilter)
                  .map((a: any) => (
-                  <div key={a._id} className="group flex items-center justify-between p-6 rounded-2xl bg-white border border-zinc-100 hover:border-zinc-200 transition-all shadow-sm">
+                   <div key={a._id} className="group flex items-center justify-between p-6 rounded-2xl bg-white border border-zinc-100 hover:border-zinc-200 transition-all shadow-sm">
                      <div className="flex items-center gap-6 flex-1 min-w-0">
                         <div className="h-12 w-12 rounded-xl bg-zinc-50 flex items-center justify-center text-zinc-600 group-hover:bg-zinc-900 group-hover:text-white transition-all shadow-sm">
-                           <FileText className="h-5 w-5" />
+                           {a.isMicroTask ? <Zap className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
                         </div>
                         <div className="min-w-0 flex-1">
-                           <h4 className="text-[15px] font-semibold text-zinc-900 tracking-tight">{a.title}</h4>
+                           <div className="flex items-center gap-3">
+                             <h4 className="text-[15px] font-semibold text-zinc-900 tracking-tight truncate">{a.title}</h4>
+                             {a.isMicroTask && (
+                               <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-100 text-[8px] font-black uppercase tracking-widest px-1.5 h-4">
+                                 Self Assigned
+                               </Badge>
+                             )}
+                           </div>
                            <div className="flex items-center gap-4 text-xs text-zinc-600 font-medium uppercase tracking-tight mt-1.5">
                               <span className="flex items-center gap-2">Lead: {a.assignedBy?.name || "System"}</span>
                               <span className="h-1 w-1 rounded-full bg-zinc-300" />
@@ -303,7 +354,13 @@ export default function UserDetail() {
                           variant="outline" 
                           size="sm"
                           className="h-10 px-5 rounded-xl text-[10px] font-bold uppercase tracking-widest border-zinc-200 text-zinc-700 hover:bg-zinc-900 hover:text-white transition-all"
-                          onClick={() => { setSelectedAssignment(a); fetchAssignmentTasks(a._id); setIsModalOpen(true); }}
+                          onClick={() => { 
+                            setSelectedAssignment(a); 
+                            if (!a.isMicroTask) {
+                              fetchAssignmentTasks(a._id); 
+                            }
+                            setIsModalOpen(true); 
+                          }}
                         >
                            View Details
                         </Button>

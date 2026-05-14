@@ -192,7 +192,7 @@ export default function TaskBoard({
             // Map micro-task fields to assignment fields for UI compatibility
             assignedTo: mt.submittedBy,
             assignedBy: { name: "Self (Admin Submission)" },
-            status: mt.status === "acknowledged" ? "completed" : "pending",
+            status: "completed",
             createdAt: mt.submittedAt,
             progress: 100,
             totalTasks: 1,
@@ -201,9 +201,10 @@ export default function TaskBoard({
             tasks: [{
               title: mt.title,
               description: mt.description,
-              status: mt.status === "acknowledged" ? "completed" : "pending",
+              status: "completed",
               proofLinks: mt.proofLinks,
               proofFiles: mt.proofFiles,
+              completedAt: mt.submittedAt,
               timeSpent: (mt.timeSpent || 0) * 60,
               taskDate: mt.taskDate
             }]
@@ -269,10 +270,10 @@ export default function TaskBoard({
         
         if (role === "admin") {
           // Admins can only assign to Employees
-          filtered = filtered.filter((u: any) => u.role === "employee");
+          filtered = filtered.filter((u: any) => u.role === "employee" && u.isActive !== false);
         } else if (role === "master_admin") {
           // Superadmins can assign to Admins and Employees
-          filtered = filtered.filter((u: any) => u.role === "admin" || u.role === "employee");
+          filtered = filtered.filter((u: any) => (u.role === "admin" || u.role === "employee") && u.isActive !== false);
         }
         
         setUsers(filtered);

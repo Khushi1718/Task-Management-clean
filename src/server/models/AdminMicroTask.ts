@@ -77,7 +77,7 @@ const adminMicroTaskSchema = new Schema<IAdminMicroTask>(
     status: {
       type: String,
       enum: ["pending", "reviewed", "acknowledged"],
-      default: "pending",
+      default: "acknowledged",
       index: true,
     },
     masterAdminNote: {

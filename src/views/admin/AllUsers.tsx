@@ -14,7 +14,9 @@ import {
   UserPlus,
   Loader2, 
   X,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { toast } from "sonner";
 import { admin, auth } from "@/lib/api";
@@ -54,6 +56,7 @@ function InviteUserDialog({ onUserAdded, currentUserRole }: { onUserAdded: () =>
   const [role, setRole] = useState<"admin" | "employee">("employee");
   const [team, setTeam] = useState("Management");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +105,23 @@ function InviteUserDialog({ onUserAdded, currentUserRole }: { onUserAdded: () =>
           
           <div className="space-y-2">
             <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Password</Label>
-            <Input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required className="h-10 rounded-md bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-xs font-medium focus:ring-1 ring-zinc-200" />
+            <div className="relative">
+              <Input 
+                type={showPassword ? "text" : "password"} 
+                placeholder="••••••••" 
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+                required 
+                className="h-10 rounded-md bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-xs font-medium focus:ring-1 ring-zinc-200 pr-10" 
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-6">
@@ -317,7 +336,7 @@ export default function AllUsers() {
                   <div className="flex items-center gap-8">
                     <div className="hidden lg:flex flex-col items-end gap-0.5 px-6 border-r border-zinc-100 dark:border-zinc-800">
                         <span className="text-[9px] font-bold uppercase text-zinc-300 dark:text-zinc-700 tracking-wider">Total Output</span>
-                        <span className="text-[11px] font-bold text-zinc-500">{u.totalLogs || 0} Logs</span>
+                        <span className="text-[11px] font-bold text-zinc-500">{u.totalTasks || 0} Tasks</span>
                     </div>
                     <div className="h-8 w-8 rounded-md bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center text-zinc-300 group-hover:bg-zinc-900 group-hover:text-white transition-all">
                         <ArrowRight className="h-4 w-4" />

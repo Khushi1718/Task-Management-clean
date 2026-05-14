@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Mail, Shield, User, MapPin, Building, Key, Loader2 } from "lucide-react";
+import { Mail, Shield, User, MapPin, Building, Key, Loader2, Eye, EyeOff } from "lucide-react";
 import { auth } from "@/lib/api";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -17,6 +17,9 @@ export default function AdminProfile() {
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [passwordData, setPasswordData] = useState({ current: "", new: "", confirm: "" });
   const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +39,9 @@ export default function AdminProfile() {
         toast.success("Password updated successfully");
         setIsPasswordDialogOpen(false);
         setPasswordData({ current: "", new: "", confirm: "" });
+        setShowCurrent(false);
+        setShowNew(false);
+        setShowConfirm(false);
       } else {
         toast.error(res.message || "Failed to update password");
       }
@@ -192,33 +198,63 @@ export default function AdminProfile() {
                       <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
                           <Label htmlFor="current">Current Password</Label>
-                          <Input 
-                            id="current" 
-                            type="password" 
-                            value={passwordData.current} 
-                            onChange={(e) => setPasswordData({...passwordData, current: e.target.value})} 
-                            required 
-                          />
+                          <div className="relative">
+                            <Input 
+                              id="current" 
+                              type={showCurrent ? "text" : "password"} 
+                              value={passwordData.current} 
+                              onChange={(e) => setPasswordData({...passwordData, current: e.target.value})} 
+                              required 
+                              className="pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowCurrent(!showCurrent)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
                         </div>
                         <div className="grid gap-2">
                           <Label htmlFor="new">New Password</Label>
-                          <Input 
-                            id="new" 
-                            type="password" 
-                            value={passwordData.new} 
-                            onChange={(e) => setPasswordData({...passwordData, new: e.target.value})} 
-                            required 
-                          />
+                          <div className="relative">
+                            <Input 
+                              id="new" 
+                              type={showNew ? "text" : "password"} 
+                              value={passwordData.new} 
+                              onChange={(e) => setPasswordData({...passwordData, new: e.target.value})} 
+                              required 
+                              className="pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowNew(!showNew)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
                         </div>
                         <div className="grid gap-2">
                           <Label htmlFor="confirm">Confirm New Password</Label>
-                          <Input 
-                            id="confirm" 
-                            type="password" 
-                            value={passwordData.confirm} 
-                            onChange={(e) => setPasswordData({...passwordData, confirm: e.target.value})} 
-                            required 
-                          />
+                          <div className="relative">
+                            <Input 
+                              id="confirm" 
+                              type={showConfirm ? "text" : "password"} 
+                              value={passwordData.confirm} 
+                              onChange={(e) => setPasswordData({...passwordData, confirm: e.target.value})} 
+                              required 
+                              className="pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowConfirm(!showConfirm)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
                         </div>
                       </div>
                       <DialogFooter>

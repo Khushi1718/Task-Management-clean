@@ -193,26 +193,29 @@
 }
 
 /* ── Text ─────────────────────────────────────────────────────── */
+.dark .text-zinc-950 {
+  color: hsl(210 40% 98%) !important;
+}
 .dark .text-zinc-900 {
   color: hsl(210 40% 96%) !important;
 }
 .dark .text-zinc-800 {
-  color: hsl(210 30% 88%) !important;
+  color: hsl(210 30% 90%) !important;
 }
 .dark .text-zinc-700 {
-  color: hsl(215 20% 78%) !important;
+  color: hsl(215 20% 82%) !important;
 }
 .dark .text-zinc-600 {
-  color: hsl(215 20% 68%) !important;
+  color: hsl(215 20% 72%) !important;
 }
 .dark .text-zinc-500 {
-  color: hsl(215 15% 58%) !important;
+  color: hsl(215 15% 65%) !important;
 }
 .dark .text-zinc-400 {
-  color: hsl(215 15% 52%) !important;
+  color: hsl(215 15% 58%) !important;
 }
 .dark .text-zinc-300 {
-  color: hsl(215 12% 42%) !important;
+  color: hsl(215 12% 50%) !important;
 }
 
 /* ── Semantic background pills ────────────────────────────────── */

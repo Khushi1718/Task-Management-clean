@@ -110,7 +110,7 @@ export default function Login() {
           
           {/* subtle Logo Header */}
           <div className="mb-12 text-center lg:text-left">
-            <div className="inline-block p-4 rounded-[2rem] bg-zinc-50 dark:bg-white border border-zinc-100 dark:border-white/5 mb-8 hover:scale-105 transition-transform duration-500">
+            <div style={{ backgroundColor: '#ffffff' }} className="inline-block p-4 rounded-[2rem] border border-zinc-100 dark:border-white/5 mb-8 hover:scale-105 transition-transform duration-500">
                <Image 
                  src={logo} 
                  alt="Experience My India" 
@@ -127,7 +127,7 @@ export default function Login() {
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2.5">
-              <label htmlFor="email" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">
+              <label htmlFor="email" className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400 ml-1">
                 Corporate Email
               </label>
               <div className="relative group">
@@ -139,16 +139,16 @@ export default function Login() {
                   onChange={(e) => setEmail(e.target.value)}
                   required 
                   disabled={isSubmitting || isSuccess}
-                  className="h-14 rounded-2xl border-border bg-accent/20 px-5 text-base font-medium transition-all focus:ring-4 focus:ring-primary/10 focus:border-primary group-hover:bg-accent/40" 
+                  className="h-14 rounded-2xl border-border bg-zinc-50 dark:bg-zinc-900/50 px-5 text-base font-medium transition-all focus:ring-4 focus:ring-primary/10 focus:border-primary group-hover:bg-zinc-100 dark:group-hover:bg-zinc-900" 
                 />
               </div>
             </div>
 
             <div className="space-y-2.5">
               <div className="flex items-center justify-between ml-1">
-                <label htmlFor="password" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-                  Security Key
-                </label>
+                  <label htmlFor="password" className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+                    Security Key
+                  </label>
               </div>
               <div className="relative group">
                 <Input 
@@ -159,7 +159,7 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   required 
                   disabled={isSubmitting || isSuccess}
-                  className="h-14 rounded-2xl border-border bg-accent/20 px-5 pr-14 text-base font-medium transition-all focus:ring-4 focus:ring-primary/10 focus:border-primary group-hover:bg-accent/40" 
+                  className="h-14 rounded-2xl border-border bg-zinc-50 dark:bg-zinc-900/50 px-5 pr-14 text-base font-medium transition-all focus:ring-4 focus:ring-primary/10 focus:border-primary group-hover:bg-zinc-100 dark:group-hover:bg-zinc-900" 
                 />
                 <button
                   type="button"

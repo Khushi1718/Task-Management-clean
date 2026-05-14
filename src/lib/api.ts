@@ -451,13 +451,14 @@ export const adminMicroTasks = {
     });
   },
 
-  // Admin gets their own submissions; Master Admin gets all
-  getAll: async (limit = 20, skip = 0, status?: string, date?: string) => {
+  // Admin gets their own submissions; Master Admin gets all unless userId is provided
+  getAll: async (limit = 20, skip = 0, status?: string, date?: string, userId?: string) => {
     const params = new URLSearchParams();
     params.append("limit", limit.toString());
     params.append("skip", skip.toString());
     if (status && status !== "all") params.append("status", status);
     if (date) params.append("date", date);
+    if (userId) params.append("userId", userId);
     return apiRequest(`/admin/micro-tasks?${params.toString()}`);
   },
 

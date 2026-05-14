@@ -118,7 +118,7 @@ export default function MasterAdminDashboard() {
           const normalizedMicro = microTasksRes.data.map((mt: any) => ({
             ...mt,
             isMicroTask: true,
-            status: mt.status === "acknowledged" ? "completed" : "pending",
+            status: "completed",
             createdAt: mt.submittedAt,
             progress: 100,
             totalTasks: 1,
@@ -127,8 +127,8 @@ export default function MasterAdminDashboard() {
             tasks: [{
               title: mt.title,
               description: mt.description,
-              status: mt.status === "acknowledged" ? "completed" : "pending",
-              completedAt: mt.status === "acknowledged" ? mt.submittedAt : null,
+              status: "completed",
+              completedAt: mt.submittedAt,
               timeSpent: (mt.timeSpent || 0) * 60,
               taskDate: mt.taskDate
             }]
@@ -400,7 +400,7 @@ export default function MasterAdminDashboard() {
                       <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 800, fill: '#a1a1aa' }} />
                       <Tooltip contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 20px 50px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 900, textTransform: 'uppercase' }} />
                       <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', paddingBottom: '30px', letterSpacing: '0.1em' }} />
-                      <Line type="monotone" dataKey="assigned" name="Tasks Assigned" stroke="#18181b" strokeWidth={4} dot={{ r: 5, fill: '#18181b', strokeWidth: 3, stroke: '#fff' }} />
+                      <Line type="monotone" dataKey="assigned" name="Tasks Assigned" stroke="#71717a" strokeWidth={4} dot={{ r: 5, fill: '#71717a', strokeWidth: 3, stroke: '#fff' }} />
                       <Line type="monotone" dataKey="completed" name="Tasks Completed" stroke="#10b981" strokeWidth={4} dot={{ r: 5, fill: '#10b981', strokeWidth: 3, stroke: '#fff' }} />
                     </LineChart>
                   </ResponsiveContainer>

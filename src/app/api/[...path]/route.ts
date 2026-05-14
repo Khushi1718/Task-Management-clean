@@ -180,6 +180,10 @@ export async function POST(request: NextRequest, context: any) {
             return fail(403, "Admins can only assign tasks to Employees.");
           }
 
+          if (targetUser.isActive === false) {
+            return fail(403, "Access Revoked: Cannot assign tasks to an inactive user.");
+          }
+
           // Create Assignment
           const assignment = new Assignment({
             assignedBy: new Types.ObjectId(auth.user.userId),
@@ -270,48 +274,53 @@ export async function POST(request: NextRequest, context: any) {
     }
 
   if (path === "/auth/register") {
-    const auth = requireAuth(request);
-    if (auth.response) return auth.response;
+    try {
+      const auth = requireAuth(request);
+      if (auth.response) return auth.response;
 
-    const { name, email, password, team, role: targetRole } = body;
-    if (!name || !email || !password || !team) return fail(400, "All fields are required");
+      const { name, email, password, team, role: targetRole } = body;
+      if (!name || !email || !password || !team) return fail(400, "All fields are required");
 
-    // Role-based creation logic
-    if (auth.user.role === "admin") {
-      if (targetRole !== "employee") {
-        return fail(403, "Admins can only create Employee accounts");
+      // Role-based creation logic
+      if (auth.user.role === "admin") {
+        if (targetRole !== "employee") {
+          return fail(403, "Admins can only create Employee accounts");
+        }
+      } else if (auth.user.role !== "master_admin") {
+        return fail(403, "Only Admins and Superadmins can create users");
       }
-    } else if (auth.user.role !== "master_admin") {
-      return fail(403, "Only Admins and Superadmins can create users");
+
+      const existingUser = await User.findOne({ email });
+      if (existingUser) return fail(400, "Email already registered");
+
+      const user = await User.create({
+        name,
+        email,
+        password,
+        team,
+        role: ["admin", "employee"].includes(targetRole) ? targetRole : "employee",
+      });
+      
+      logActivity(request, {
+        userId: auth.user.userId,
+        action: "create_user",
+        resourceType: "user",
+        resourceId: user._id.toString(),
+        details: { name: user.name, role: user.role }
+      });
+
+      return ok("User created successfully", { 
+        user: {
+          id: user._id, 
+          name: user.name, 
+          email: user.email, 
+          role: user.role 
+        }
+      }, 201);
+    } catch (error: any) {
+      console.error("REGISTRATION ERROR:", error);
+      return fail(500, error.message || "Internal server error during registration");
     }
-
-    const existingUser = await User.findOne({ email });
-    if (existingUser) return fail(400, "Email already registered");
-
-    const user = await User.create({
-      name,
-      email,
-      password,
-      team,
-      role: ["admin", "employee"].includes(targetRole) ? targetRole : "employee",
-    });
-    
-    logActivity(request, {
-      userId: auth.user.userId,
-      action: "create_user",
-      resourceType: "user",
-      resourceId: user._id.toString(),
-      details: { name: user.name, role: user.role }
-    });
-
-    return ok("User created successfully", { 
-      user: {
-        id: user._id, 
-        name: user.name, 
-        email: user.email, 
-        role: user.role 
-      }
-    }, 201);
   }
 
   if (path === "/auth/login") {
@@ -538,7 +547,7 @@ export async function POST(request: NextRequest, context: any) {
         proofFiles: Array.isArray(proofFiles) ? proofFiles : [],
         timeSpent: Number(timeSpent) || 0,
         taskDate: taskDate ? new Date(taskDate) : new Date(),
-        status: "pending",
+        status: "acknowledged",
         submittedAt: new Date(),
       });
 
@@ -579,11 +588,24 @@ export async function GET(request: NextRequest, context: Context) {
 
     if (!user) return fail(404, "User not found");
 
-    // Calculate total tasks assigned to this user
-    const userAssignments = await Assignment.find({ assignedTo: auth.user.userId }).select("_id");
-    const totalTasks = await Task.countDocuments({ 
-      assignmentId: { $in: userAssignments.map(a => a._id) } 
-    });
+    const [assignmentTasks, workLogTasksResult, adminMicroTasksCount] = await Promise.all([
+      (async () => {
+        const userAssignments = await Assignment.find({ assignedTo: auth.user.userId }).select("_id");
+        return Task.countDocuments({ 
+          assignmentId: { $in: userAssignments.map(a => a._id) },
+          status: "completed"
+        });
+      })(),
+      WorkLog.aggregate([
+        { $match: { userId: new Types.ObjectId(auth.user.userId), state: { $in: ["submitted", "auto_submitted"] } } },
+        { $unwind: "$tasks" },
+        { $match: { "tasks.status": "completed" } },
+        { $count: "count" }
+      ]),
+      AdminMicroTask.countDocuments({ submittedBy: auth.user.userId })
+    ]);
+
+    const totalTasks = assignmentTasks + (workLogTasksResult[0]?.count || 0) + adminMicroTasksCount;
 
     return ok("Profile retrieved", {
       id: user._id,
@@ -747,7 +769,10 @@ export async function GET(request: NextRequest, context: Context) {
 
     if (isActive !== null) filter.isActive = isActive === "true";
     if (role && role !== "all") filter.role = role;
-    if (team && team !== "all") filter.team = team;
+    if (team && team !== "all") {
+      // Case-insensitive department filtering
+      filter.team = { $regex: new RegExp(`^${team}$`, "i") };
+    }
     if (q) {
       filter.$or = [
         { name: { $regex: q, $options: "i" } },
@@ -762,6 +787,37 @@ export async function GET(request: NextRequest, context: Context) {
       .skip(skipNum)
       .lean();
 
+    // Fetch real-time stats for each user (Total Logs and Combined Completed Tasks)
+    const usersWithStats = await Promise.all(users.map(async (u) => {
+      const [logs, assignments, microTasksCount] = await Promise.all([
+        WorkLog.find({ 
+          userId: u._id, 
+          state: { $in: ["submitted", "auto_submitted"] } 
+        }).select("tasks").lean(),
+        Assignment.find({ assignedTo: u._id }).select("_id").lean(),
+        AdminMicroTask.countDocuments({ submittedBy: u._id })
+      ]);
+      
+      // Count tasks from Assignments
+      const assignmentIds = assignments.map(a => a._id);
+      const assignmentTasksCount = await Task.countDocuments({ 
+        assignmentId: { $in: assignmentIds },
+        status: "completed"
+      });
+
+      // Count tasks from WorkLogs
+      const workLogTasksCount = logs.reduce((sum, log) => {
+        return sum + (log.tasks?.filter((t: any) => t.status === "completed").length || 0);
+      }, 0);
+      
+      return { 
+        ...u, 
+        id: u._id, 
+        totalLogs: logs.length, 
+        totalTasks: assignmentTasksCount + workLogTasksCount + microTasksCount
+      };
+    }));
+
     const total = await User.countDocuments(filter);
 
     logActivity(request, {
@@ -770,7 +826,7 @@ export async function GET(request: NextRequest, context: Context) {
       resourceType: "user",
     });
 
-    return ok("Users retrieved successfully", users, 200, {
+    return ok("Users retrieved successfully", usersWithStats, 200, {
       total,
       limit: limitNum,
       skip: skipNum,
@@ -790,9 +846,30 @@ export async function GET(request: NextRequest, context: Context) {
     const user = await User.findById(userId).select("-password").lean();
     if (!user) return fail(404, "User not found");
 
-    const totalLogs = await WorkLog.countDocuments({ userId: new Types.ObjectId(userId) });
-    return ok("User retrieved successfully", { ...user, totalLogs });
+    const [totalLogs, assignmentTasksCount, workLogTasksResult, adminMicroTasksCount] = await Promise.all([
+      WorkLog.countDocuments({ 
+        userId: new Types.ObjectId(userId),
+        state: { $in: ["submitted", "auto_submitted"] }
+      }),
+      (async () => {
+        const assignments = await Assignment.find({ assignedTo: new Types.ObjectId(userId) }).select("_id").lean();
+        const assignmentIds = assignments.map(a => a._id);
+        return Task.countDocuments({ 
+          assignmentId: { $in: assignmentIds },
+          status: "completed"
+        });
+      })(),
+      WorkLog.aggregate([
+        { $match: { userId: new Types.ObjectId(userId), state: { $in: ["submitted", "auto_submitted"] } } },
+        { $unwind: "$tasks" },
+        { $match: { "tasks.status": "completed" } },
+        { $count: "count" }
+      ]),
+      AdminMicroTask.countDocuments({ submittedBy: new Types.ObjectId(userId) })
+    ]);
 
+    const totalTasks = assignmentTasksCount + (workLogTasksResult[0]?.count || 0) + adminMicroTasksCount;
+    return ok("User retrieved successfully", { ...user, totalLogs, totalTasks });
   }
 
   if (path === "/admin/logs/all") {
@@ -1365,9 +1442,11 @@ export async function GET(request: NextRequest, context: Context) {
 
     const filter: any = {};
 
-    // Admins only see their own; Master Admins see all
+    // Admins only see their own; Master Admins see all unless userId is provided
     if (auth.user.role === "admin") {
       filter.submittedBy = new Types.ObjectId(auth.user.userId);
+    } else if (query.get("userId")) {
+      filter.submittedBy = new Types.ObjectId(query.get("userId")!);
     }
 
     if (statusFilter && statusFilter !== "all") {
@@ -1478,6 +1557,13 @@ export async function PUT(request: NextRequest, context: Context) {
 
     if (assignment.assignedBy.toString() !== auth.user.userId && auth.user.role !== "master_admin") {
       return fail(403, "Not authorized to edit this assignment");
+    }
+
+    // Verify Assignee is still active
+    const targetUser = await User.findById(assignedTo);
+    if (!targetUser) return fail(400, "Assigned user not found");
+    if (targetUser.isActive === false) {
+      return fail(403, "Access Revoked: Cannot assign tasks to an inactive user.");
     }
 
     assignment.title = title.trim();

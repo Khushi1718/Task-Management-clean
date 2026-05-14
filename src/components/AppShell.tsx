@@ -134,9 +134,19 @@ export function AppShell({
   const storeLogout = useAuthStore(state => state.logout);
 
   const activeRole = user?.role || role;
-  const items = useMemo(() => 
-    activeRole === "master_admin" ? masterAdminNav : activeRole === "admin" ? adminNav : employeeNav,
-  [activeRole]);
+  const items = useMemo(() => {
+    let baseItems = activeRole === "master_admin" ? [...masterAdminNav] : activeRole === "admin" ? [...adminNav] : [...employeeNav];
+    
+    // Custom logic: Only SEO admins or Master Admin can see SEO Reports
+    if (activeRole === "admin") {
+      const isSeoAdmin = user?.team?.toLowerCase() === "seo";
+      if (!isSeoAdmin) {
+        baseItems = baseItems.filter(item => item.to !== "/admin/seo-reports");
+      }
+    }
+    
+    return baseItems;
+  }, [activeRole, user]);
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();

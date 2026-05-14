@@ -20,7 +20,7 @@ import {
   ChevronLeft,
   ShieldAlert
 } from "lucide-react";
-import { admin, auth, tasks } from "@/lib/api";
+import { admin, auth, tasks, adminMicroTasks } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { 
@@ -71,9 +71,9 @@ export default function SEOReports() {
     const fetchUsers = async () => {
       try {
         setIsLoading(true);
-        // Fetch only SEO department users from the server
+        // Fetch all SEO department users (employees and admins) from the server
         const [usersRes, profileRes] = await Promise.all([
-          admin.getAllUsers(50, 0, debouncedSearch, FIXED_DEPARTMENT, "employee"),
+          admin.getAllUsers(50, 0, debouncedSearch, FIXED_DEPARTMENT, "all"),
           auth.getProfile()
         ]);
         
@@ -100,9 +100,41 @@ export default function SEOReports() {
       // Fetch only assignments for THIS user (using the new API filter)
       const res = await tasks.getAll("all", undefined, undefined, undefined, undefined, undefined, user._id || user.id);
       
+      let allHistory = [];
       if (res.success) {
-        setUserAssignments(res.data || []);
+        allHistory = res.data || [];
       }
+
+      // If user is an admin, also fetch their micro-tasks
+      if (user.role === "admin") {
+        const microRes = await adminMicroTasks.getAll(100, 0, "all", undefined, user._id || user.id);
+        if (microRes.success && microRes.data) {
+          const normalizedMicro = microRes.data.map((m: any) => ({
+            ...m,
+            isMicroTask: true,
+            progress: 100,
+            assignedBy: m.submittedBy,
+            createdAt: m.submittedAt || m.createdAt,
+            tasks: [{
+              _id: m._id,
+              title: m.title,
+              description: m.description,
+              status: "completed",
+              timeSpent: (m.timeSpent || 0) * 60,
+              priority: "medium",
+              completedAt: m.reviewedAt || m.submittedAt,
+              completionRemarks: m.masterAdminNote,
+              evidence: m.proofLinks?.[0] || "",
+              evidenceFiles: m.proofFiles || []
+            }]
+          }));
+          allHistory = [...allHistory, ...normalizedMicro].sort((a, b) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        }
+      }
+      
+      setUserAssignments(allHistory);
       
       setCurrentPage(1);
       setDateFilter("all");
@@ -237,7 +269,14 @@ export default function SEOReports() {
                                   variant="outline" 
                                   size="sm" 
                                   className="h-9 px-5 rounded-xl border-zinc-100 text-[10px] font-black uppercase tracking-widest hover:bg-zinc-950 hover:text-white transition-all shadow-sm"
-                                  onClick={() => { setSelectedAssignment(a); setIsModalOpen(true); }}
+                                  onClick={() => { 
+                               setSelectedAssignment(a); 
+                               if (!a.isMicroTask) {
+                                 // Only fetch for standard assignments
+                                 // Note: SEOReports seems to use its own modal logic
+                               }
+                               setIsModalOpen(true); 
+                            }}
                                 >
                                    Details
                                 </Button>
@@ -334,7 +373,7 @@ export default function SEOReports() {
                   <div className="flex items-center gap-10">
                      <div className="hidden lg:flex flex-col items-end gap-1 px-8 border-r border-zinc-100">
                         <span className="text-[9px] font-black uppercase text-zinc-300 tracking-widest">Total Output</span>
-                        <span className="text-[13px] font-black text-zinc-900 dark:text-zinc-50">{u.totalLogs || 0} Tasks</span>
+                        <span className="text-[13px] font-black text-zinc-900 dark:text-zinc-50">{u.totalTasks || 0} Tasks</span>
                      </div>
                      <div className="h-10 w-10 rounded-2xl bg-zinc-50 flex items-center justify-center text-zinc-300 group-hover:bg-zinc-950 group-hover:text-white transition-all">
                         <ChevronRight className="h-5 w-5" />
