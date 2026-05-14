@@ -23,13 +23,15 @@ function ok(message: string, data?: any, status = 200) {
 }
 
 function normalizeSeoData(data: any) {
-  if (!data) return {};
+  if (!data) return {
+    questionsAnswered: 0,
+    backlinksCreated: 0,
+    proofs: []
+  };
   return {
-    backlinks: Number(data.backlinks) || 0,
-    submissions: Number(data.submissions) || 0,
-    guestPosts: Number(data.guestPosts) || 0,
-    articles: Number(data.articles) || 0,
-    others: Number(data.others) || 0,
+    questionsAnswered: Number(data.questionsAnswered) || 0,
+    backlinksCreated: Number(data.backlinksCreated) || 0,
+    proofs: Array.isArray(data.proofs) ? data.proofs : [],
   };
 }
 
