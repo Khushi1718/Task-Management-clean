@@ -26,7 +26,7 @@ export async function connectDB() {
     const opts = {
       bufferCommands: false,
       autoIndex: process.env.NODE_ENV === "development", // Only build indexes in dev
-      maxPoolSize: 10,
+      maxPoolSize: 50, // High-performance pooling for maximum users
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     };

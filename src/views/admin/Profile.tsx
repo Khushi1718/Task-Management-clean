@@ -8,6 +8,7 @@ import { Mail, Shield, User, MapPin, Building, Key, Loader2, Eye, EyeOff } from 
 import { auth } from "@/lib/api";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useAuthStore } from "@/store/authStore";
 
 export default function AdminProfile() {
   const [u, setU] = useState<any>(null);
@@ -77,6 +78,8 @@ export default function AdminProfile() {
       if (res.success) {
         toast.success("Profile updated successfully");
         setU(res.data);
+        // Sync with global auth store to update sidebar/header
+        useAuthStore.getState().setUser(res.data);
       } else {
         toast.error(res.message || "Failed to update profile");
       }
@@ -108,7 +111,7 @@ export default function AdminProfile() {
             <div className="h-32 bg-gradient-to-r from-primary/20 via-primary/5 to-transparent border-b border-border relative">
               <div className="absolute top-4 right-4 bg-background/80 backdrop-blur text-xs font-semibold px-2.5 py-1 rounded-full border border-border flex items-center gap-1.5 shadow-sm text-foreground">
                 <Shield className="h-3.5 w-3.5 text-primary" />
-                {u.role === "master_admin" ? "Super Admin" : "Workspace Admin"}
+                {u.role === "master_admin" ? "Master Admin" : "Workspace Admin"}
               </div>
             </div>
             <div className="px-8 pb-8 pt-0 relative sm:flex sm:items-end sm:justify-between">
