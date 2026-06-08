@@ -207,6 +207,34 @@ export default function Login() {
             </Button>
           </form>
 
+          {/* Demo Credentials */}
+          <div className="mt-8 pt-6 border-t border-border">
+             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-4 text-center">Demo Accounts</p>
+             <div className="flex justify-center gap-3">
+                <button 
+                  type="button"
+                  onClick={() => { setEmail("master@google.com"); setPassword("password123"); }}
+                  className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 rounded-lg hover:bg-primary hover:text-white transition-colors"
+                >
+                  Superadmin
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => { setEmail("admin@google.com"); setPassword("password123"); }}
+                  className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 rounded-lg hover:bg-primary hover:text-white transition-colors"
+                >
+                  Admin
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => { setEmail("khushi@google.com"); setPassword("password123"); }}
+                  className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 rounded-lg hover:bg-primary hover:text-white transition-colors"
+                >
+                  Employee
+                </button>
+             </div>
+          </div>
+
           <div className="mt-20 text-center">
              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.4em] opacity-50">
                 © {new Date().getFullYear()} Experience My India
